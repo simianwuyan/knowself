@@ -22,6 +22,43 @@ export interface KnowledgeNode {
   estHours: number;
   resources: Resource[];
   mastery: Mastery;
+  fromPaper?: string; // 来源论文标题（从论文导入的知识点）
+  refs?: PaperRef[]; // 参考文献题录（仅 paper 节点）
+}
+
+export interface PaperRef {
+  title: string;
+  year?: number;
+}
+
+export interface PaperMeta {
+  title: string;
+  authors: string[];
+  year?: number;
+  venue?: string;
+  abstract?: string;
+  citations?: number;
+  refs: PaperRef[]; // 参考文献题录
+  source: "openalex" | "text"; // openalex=链接/标题命中；text=用户粘贴文本
+}
+
+/** AI 从论文中提取的结果（合并由调用方完成） */
+export interface PaperAnalysis {
+  paperNode: Omit<KnowledgeNode, "id" | "mastery" | "refs">;
+  nodes: Omit<KnowledgeNode, "id" | "mastery">[];
+  keyRefs: { title: string; why: string }[];
+}
+
+/** 知识点对比记录 */
+export interface Comparison {
+  id: string;
+  nodeNames: string[];
+  text: string;
+  createdAt: number;
+}
+
+export interface CompareResult {
+  text: string;
 }
 
 export interface Project {
@@ -32,6 +69,7 @@ export interface Project {
   goal: string;
   summary: string;
   nodes: KnowledgeNode[];
+  comparisons?: Comparison[];
   createdAt: number;
   updatedAt: number;
 }

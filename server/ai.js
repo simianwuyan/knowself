@@ -5,6 +5,8 @@ import {
   expandNodeAI,
   recommendResourcesAI,
   testConnectionAI,
+  analyzePaperAI,
+  compareNodesAI,
 } from "../shared/ai-client.ts";
 
 function current() {
@@ -33,4 +35,14 @@ export function recommendResources(node, project) {
 export function testConnection(overrides = {}) {
   const { settings, useMock } = current();
   return testConnectionAI(settings, useMock, overrides);
+}
+
+export function analyzePaper(input) {
+  const { settings, useMock } = current();
+  return analyzePaperAI(settings, useMock, input);
+}
+
+export function compareNodes(nodes) {
+  const { settings, useMock } = current();
+  return compareNodesAI(settings, useMock, nodes);
 }

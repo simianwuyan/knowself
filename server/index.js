@@ -12,7 +12,15 @@ import {
   deleteProject,
   newId,
 } from "./store.js";
-import { generateTree, expandNode, recommendResources, testConnection } from "./ai.js";
+import {
+  generateTree,
+  expandNode,
+  recommendResources,
+  testConnection,
+  analyzePaper,
+  compareNodes,
+} from "./ai.js";
+import { mergePaperAnalysis } from "../shared/merge.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "..", "dist");
@@ -144,13 +152,15 @@ app.post("/api/projects/:id/generate", wrap(async (req, res) => {
 app.post("/api/projects/:id/nodes", wrap(async (req, res) => {
   const project = getProject(req.params.id);
   if (!project) return res.status(404).json({ error: "项目不存在" });
-  const { name, description = "", importance = "recommended", prereqs = [], estHours = 5 } = req.body || {};
+  const { name, description = "", importance = "recommended", prereqs = [], estHours = 5, kind, fromPaper } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: "请填写知识点名称" });
   project.nodes.push({
     id: newId(),
     name: name.trim().slice(0, 80),
     description: String(description || "").trim(),
     importance: ["core", "recommended", "extension"].includes(importance) ? importance : "recommended",
+    kind: ["concept", "model", "formula", "paper", "tool"].includes(kind) ? kind : undefined,
+    fromPaper: typeof fromPaper === "string" && fromPaper.trim() ? fromPaper.trim() : undefined,
     prereqs: Array.isArray(prereqs) ? prereqs.filter((p) => typeof p === "string") : [],
     estHours: Math.max(0, Math.round(Number(estHours)) || 5),
     resources: [],
@@ -189,6 +199,65 @@ app.delete("/api/projects/:id/nodes/:nodeId", wrap(async (req, res) => {
   const before = project.nodes.length;
   project.nodes = project.nodes.filter((n) => n.id !== req.params.nodeId);
   if (project.nodes.length === before) return res.status(404).json({ error: "节点不存在" });
+  project.updatedAt = Date.now();
+  saveProject(project);
+  ok(res, project);
+}));
+
+// AI 分析论文并合并进项目
+app.post("/api/projects/:id/analyze-paper", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const { meta, extraText } = req.body || {};
+  if (!meta || !meta.title) return res.status(400).json({ error: "缺少论文题录" });
+  const analysis = await analyzePaper({
+    meta,
+    direction: project.direction,
+    extraText: typeof extraText === "string" ? extraText : undefined,
+  });
+  const outcome = mergePaperAnalysis(project, analysis, meta);
+  saveProject(project);
+  ok(res, { project, addedCount: outcome.addedCount, skipped: outcome.skipped });
+}));
+
+// AI 对比知识点（不落库）
+app.post("/api/projects/:id/compare", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const nodeIds = Array.isArray(req.body?.nodeIds) ? req.body.nodeIds : [];
+  const nodes = nodeIds
+    .map((id) => project.nodes.find((n) => n.id === id))
+    .filter(Boolean);
+  if (nodes.length < 2) return res.status(400).json({ error: "请选择 2~4 个知识点" });
+  const result = await compareNodes(nodes);
+  ok(res, result);
+}));
+
+// 保存对比记录
+app.post("/api/projects/:id/comparisons", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const { nodeNames, text } = req.body || {};
+  if (!Array.isArray(nodeNames) || !text) {
+    return res.status(400).json({ error: "参数不完整" });
+  }
+  if (!project.comparisons) project.comparisons = [];
+  project.comparisons.unshift({
+    id: newId(),
+    nodeNames,
+    text: String(text),
+    createdAt: Date.now(),
+  });
+  project.updatedAt = Date.now();
+  saveProject(project);
+  ok(res, project);
+}));
+
+// 删除对比记录
+app.delete("/api/projects/:id/comparisons/:cid", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  project.comparisons = (project.comparisons || []).filter((c) => c.id !== req.params.cid);
   project.updatedAt = Date.now();
   saveProject(project);
   ok(res, project);

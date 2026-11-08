@@ -1,6 +1,13 @@
 // 无 API Key 或开启 useMock 时的演示数据（server 与浏览器本地模式共用）
 // 细粒度示例：以「扩散模型图像生成」为例，展示概念/模型/公式/论文/工具粒度
-import type { KnowledgeNode, TreeParams, TreeResult } from "./types.ts";
+import type {
+  CompareResult,
+  KnowledgeNode,
+  PaperAnalysis,
+  PaperMeta,
+  TreeParams,
+  TreeResult,
+} from "./types.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -89,4 +96,54 @@ export async function mockTest(): Promise<{ reply: string; ms: number; model?: s
   const started = Date.now();
   await sleep(400);
   return { reply: "Mock 连接正常", ms: Date.now() - started, model: "mock" };
+}
+
+export async function mockAnalyzePaper({ meta }: { meta: PaperMeta }): Promise<PaperAnalysis> {
+  await sleep(1500);
+  const title = meta.title || "Mock 论文";
+  const refTitle = meta.refs[0]?.title || "Mock 引文A：领域奠基工作";
+  const refTitle2 = meta.refs[1]?.title || "Mock 引文B：方法前置论文";
+  return {
+    paperNode: {
+      name: title,
+      description: `（Mock 提取）这篇论文是该方向的关键工作，提出的方法建立在 ${refTitle} 等前作之上。读懂它需要先掌握下列概念、公式与前置论文。`,
+      kind: "paper",
+      importance: "core",
+      prereqs: [],
+      estHours: 4,
+      resources: [],
+    },
+    nodes: [
+      { name: "论文核心问题", description: "论文要解决的问题定义与动机（Mock 示例节点）", kind: "concept", importance: "core", prereqs: [], estHours: 0.5, resources: [], fromPaper: title },
+      { name: "方法总体框架", description: "论文方法的模块划分与数据流（Mock 示例节点）", kind: "model", importance: "core", prereqs: ["论文核心问题"], estHours: 1.5, resources: [], fromPaper: title },
+      { name: "论文关键公式", description: "论文中最重要的目标函数/定理及其含义（Mock 示例节点）", kind: "formula", importance: "core", prereqs: ["方法总体框架"], estHours: 1, resources: [], fromPaper: title },
+      { name: "实验设计与指标", description: "论文实验怎么验证主张、看哪些指标（Mock 示例节点）", kind: "concept", importance: "recommended", prereqs: ["论文关键公式"], estHours: 1, resources: [], fromPaper: title },
+    ],
+    keyRefs: [
+      { title: refTitle, why: "（Mock）论文方法的直接基础，先读它才能理解改进点" },
+      { title: refTitle2, why: "（Mock）前置论文，提供了本论文对比的 baseline" },
+    ],
+  };
+}
+
+export async function mockCompare({ nodes }: { nodes: KnowledgeNode[] }): Promise<CompareResult> {
+  await sleep(1200);
+  const names = nodes.map((n) => n.name);
+  const a = names[0] || "知识点A";
+  const b = names[1] || "知识点B";
+  return {
+    text: `【共同点】（Mock 演示）${a} 与 ${b} 都属于同一知识链条上的内容，服务于同一类研究问题，需要相似的数学与建模基础。
+
+【关键差异】
+${a}：侧重「是什么」——建立概念与直觉，是理解后续内容的入口。
+${b}：侧重「怎么算」——在概念之上引入可操作的模型/公式，直接对应论文中的方法部分。
+
+【联系与依赖】${b} 的定义建立在 ${a} 之上：先吃透 ${a}，${b} 的推导才不会变成符号堆砌。学习顺序上应先 ${a} 后 ${b}。
+
+【常见混淆点】初学者常把两者的适用条件混为一谈：${a} 的结论在更宽松的条件下成立，而 ${b} 的使用有额外前提，套用前要逐条核对。
+
+【怎么选/怎么学】读论文遇到 ${b} 的推导卡住时，回到 ${a} 补直觉；两者都掌握后，尝试互相推导一遍，检验是否真正理解。
+
+（以上为 Mock 演示数据，连接真实 AI 后将针对你选的知识点生成真实对比）`,
+  };
 }

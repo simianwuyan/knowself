@@ -36,6 +36,14 @@ export const serverBackend: Backend = {
 
   addResource: (pid, nid, resource) => rest.addResource(pid, nid, resource),
 
+  analyzePaper: (pid, input) => rest.analyzePaper(pid, input),
+
+  compareNodes: (pid, nodeIds) => rest.compareNodes(pid, nodeIds),
+
+  saveComparison: (pid, input) => rest.saveComparison(pid, input),
+
+  deleteComparison: (pid, cid) => rest.deleteComparison(pid, cid),
+
   // 服务器模式导出：客户端拉取全部项目，组织成与本地模式相同的备份格式
   async exportAll() {
     const list = await rest.fetchProjects();

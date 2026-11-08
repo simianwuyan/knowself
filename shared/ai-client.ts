@@ -2,9 +2,12 @@
 // 只依赖 fetch（Node 18+ 与浏览器均内置），设置与 mock 判断由调用方决定
 import type {
   AISettings,
+  CompareResult,
   Importance,
   KnowledgeNode,
   NodeKind,
+  PaperAnalysis,
+  PaperMeta,
   Project,
   Resource,
   ResourceType,
@@ -18,8 +21,19 @@ import {
   userPromptForExpand,
   systemPromptForResources,
   userPromptForResources,
+  systemPromptForPaperAnalysis,
+  userPromptForPaperAnalysis,
+  systemPromptForCompare,
+  userPromptForCompare,
 } from "./prompts.ts";
-import { mockTree, mockExpand, mockResources, mockTest } from "./mock.ts";
+import {
+  mockTree,
+  mockExpand,
+  mockResources,
+  mockTest,
+  mockAnalyzePaper,
+  mockCompare,
+} from "./mock.ts";
 
 const TIMEOUT_MS = 120_000;
 
@@ -306,4 +320,99 @@ export async function testConnectionAI(
     { temperature: 0, extraBody: { max_tokens: 10 }, timeoutMs: 30_000 }
   );
   return { reply: reply.trim(), ms: Date.now() - started, model: s.model };
+}
+
+// ---------- 论文分析 / 知识点对比 ----------
+
+function cleanNodeList(
+  list: unknown,
+  validNames: Set<string>,
+  defaultHours: number,
+  fromPaper?: string
+): Omit<KnowledgeNode, "id" | "mastery">[] {
+  return (Array.isArray(list) ? list : [])
+    .filter(
+      (n): n is Record<string, unknown> =>
+        Boolean(n) && typeof (n as { name?: unknown }).name === "string" && Boolean((n as { name: string }).name.trim())
+    )
+    .map((n) => ({
+      name: (n.name as string).trim(),
+      description: typeof n.description === "string" ? (n.description as string).trim() : "",
+      kind: kindOk(n.kind),
+      importance: importanceOk(n.importance) ? n.importance : ("recommended" as Importance),
+      prereqs: cleanPrereqs(n.prereqs, validNames),
+      estHours: cleanHours(n.estHours, defaultHours),
+      resources: cleanResources(n.resources),
+      ...(fromPaper ? { fromPaper } : {}),
+    }));
+}
+
+/** AI 分析论文：拆出论文节点、知识点与必读引文（合并由调用方完成） */
+export async function analyzePaperAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  input: { meta: PaperMeta; direction: string; extraText?: string }
+): Promise<PaperAnalysis> {
+  if (isMockSettings(settings, useMock)) return mockAnalyzePaper({ meta: input.meta });
+  const json = await chatJson(
+    settings,
+    systemPromptForPaperAnalysis(),
+    userPromptForPaperAnalysis({ meta: input.meta, direction: input.direction, extraText: input.extraText }),
+    { temperature: 0.4 }
+  );
+  const pn = json.paperNode as Record<string, unknown> | undefined;
+  if (!pn || typeof pn.name !== "string" || !pn.name.trim()) {
+    throw new Error("AI 未返回论文节点，请重试");
+  }
+  const paperName = pn.name.trim();
+  const keyRefs = (Array.isArray(json.keyRefs) ? json.keyRefs : [])
+    .filter(
+      (r): r is { title: string; why: string } =>
+        Boolean(r) && typeof (r as { title?: unknown }).title === "string" && Boolean((r as { title: string }).title.trim())
+    )
+    .map((r) => ({
+      title: r.title.trim(),
+      why: typeof r.why === "string" ? r.why.trim() : "",
+    }));
+  const refTitles = new Set(keyRefs.map((r) => r.title));
+  const rawNodes = Array.isArray(json.nodes) ? json.nodes : [];
+  const nodeNames = new Set(
+    rawNodes
+      .map((n) => (n && typeof (n as { name?: unknown }).name === "string" ? ((n as { name: string }).name || "").trim() : ""))
+      .filter(Boolean)
+  );
+  // 两遍扫描：先收集全部节点名，再清洗，保证节点间互相引用不被误删
+  const validNames = new Set([paperName, ...refTitles, ...nodeNames]);
+  const nodes = cleanNodeList(rawNodes, validNames, 1.5, paperName);
+  const paperNode = cleanNodeList([{ ...pn, kind: "paper", importance: "core" }], validNames, 4)[0];
+  return { paperNode, nodes, keyRefs };
+}
+
+/** AI 对比 2~4 个知识点，返回纯文本讲解 */
+export async function compareNodesAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  nodes: KnowledgeNode[]
+): Promise<CompareResult> {
+  if (isMockSettings(settings, useMock)) return mockCompare({ nodes });
+  if (nodes.length < 2 || nodes.length > 4) {
+    throw new Error("请选择 2~4 个知识点进行对比");
+  }
+  const raw = await rawChat(
+    settings,
+    [
+      { role: "system", content: systemPromptForCompare() },
+      { role: "user", content: userPromptForCompare({ nodes }) },
+    ],
+    { temperature: 0.5 }
+  );
+  // 兼容把结果包成 JSON 返回的模型：{"text": "..."} → 取 text
+  let text = raw.trim();
+  try {
+    const obj = extractJson(text);
+    if (obj && typeof obj.text === "string" && obj.text.trim()) text = obj.text.trim();
+  } catch {
+    // 不是 JSON，按纯文本使用
+  }
+  return { text };
 }

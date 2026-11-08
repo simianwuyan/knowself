@@ -1,7 +1,7 @@
 // 前端统一入口：启动时探测运行环境，自动选择 服务器模式 / 本地模式
 // 组件层只 import 本模块，不感知底层实现
 import type { Backend } from "./backend/types";
-import type { Resource } from "./types";
+import type { CompareResult, PaperMeta, Resource } from "./types";
 import { serverBackend } from "./backend/server";
 import { localBackend } from "./backend/local";
 
@@ -72,6 +72,20 @@ export const recommendResources = (pid: string, nid: string) =>
 
 export const addResource = (pid: string, nid: string, resource: Resource) =>
   b().addResource(pid, nid, resource);
+
+export const analyzePaper = (
+  pid: string,
+  input: { meta: PaperMeta; direction: string; extraText?: string }
+) => b().analyzePaper(pid, input);
+
+export const compareNodes = (pid: string, nodeIds: string[]) =>
+  b().compareNodes(pid, nodeIds) as Promise<CompareResult>;
+
+export const saveComparison = (pid: string, input: { nodeNames: string[]; text: string }) =>
+  b().saveComparison(pid, input);
+
+export const deleteComparison = (pid: string, comparisonId: string) =>
+  b().deleteComparison(pid, comparisonId);
 
 // ---------- 备份 / 迁移 ----------
 

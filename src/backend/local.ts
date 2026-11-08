@@ -2,6 +2,7 @@
 import type { Backend, TestResult } from "./types";
 import type {
   AISettings,
+  CompareResult,
   KnowledgeNode,
   Mastery,
   Project,
@@ -13,7 +14,10 @@ import {
   generateTreeAI,
   recommendResourcesAI,
   testConnectionAI,
+  analyzePaperAI,
+  compareNodesAI,
 } from "../../shared/ai-client";
+import { mergePaperAnalysis, normName } from "../../shared/merge";
 
 const LS_SETTINGS = "knowself:settings";
 const LS_PROJECTS = "knowself:projects";
@@ -101,10 +105,6 @@ function settingsWith(patch?: Partial<AISettings>): { settings: AISettings; useM
 
 function newId(): string {
   return crypto.randomUUID();
-}
-
-function normName(s: string): string {
-  return String(s || "").toLowerCase().replace(/\s+/g, "");
 }
 
 export const localBackend: Backend = {
@@ -214,6 +214,10 @@ export const localBackend: Backend = {
       importance: (["core", "recommended", "extension"].includes(input.importance || "")
         ? input.importance
         : "recommended") as KnowledgeNode["importance"],
+      kind: (["concept", "model", "formula", "paper", "tool"].includes(input.kind || "")
+        ? input.kind
+        : undefined) as KnowledgeNode["kind"] | undefined,
+      fromPaper: input.fromPaper,
       prereqs: [],
       estHours: Math.max(0, Math.round(Number(input.estHours)) || 5),
       resources: [],
@@ -274,6 +278,48 @@ export const localBackend: Backend = {
     if (!existing.has(normName(resource.title))) {
       node.resources = [...(node.resources || []), { ...resource, title: resource.title.trim() }];
     }
+    project.updatedAt = Date.now();
+    return putProject(project);
+  },
+
+  async analyzePaper(pid, input) {
+    const project = loadProject(pid);
+    const { settings, useMock } = settingsWith();
+    const analysis = await analyzePaperAI(settings, useMock, {
+      meta: input.meta,
+      direction: input.direction || project.direction,
+      extraText: input.extraText,
+    });
+    const outcome = mergePaperAnalysis(project, analysis, input.meta);
+    putProject(project);
+    return { project: { ...project }, addedCount: outcome.addedCount, skipped: outcome.skipped };
+  },
+
+  async compareNodes(pid, nodeIds) {
+    const project = loadProject(pid);
+    const nodes = nodeIds
+      .map((id) => project.nodes.find((n) => n.id === id))
+      .filter((n): n is KnowledgeNode => Boolean(n));
+    const { settings, useMock } = settingsWith();
+    return compareNodesAI(settings, useMock, nodes) as Promise<CompareResult>;
+  },
+
+  async saveComparison(pid, input) {
+    const project = loadProject(pid);
+    if (!project.comparisons) project.comparisons = [];
+    project.comparisons.unshift({
+      id: crypto.randomUUID(),
+      nodeNames: input.nodeNames,
+      text: input.text,
+      createdAt: Date.now(),
+    });
+    project.updatedAt = Date.now();
+    return putProject(project);
+  },
+
+  async deleteComparison(pid, cid) {
+    const project = loadProject(pid);
+    project.comparisons = (project.comparisons || []).filter((c) => c.id !== cid);
     project.updatedAt = Date.now();
     return putProject(project);
   },

@@ -1,5 +1,5 @@
 // AI 提示词集中管理（server 与浏览器本地模式共用）
-import type { KnowledgeNode, Project, TreeParams } from "./types.ts";
+import type { KnowledgeNode, PaperMeta, Project, TreeParams } from "./types.ts";
 
 export const IMPORTANCE_DESC = `importance 取值三选一：
 - "core"：不掌握就无法读懂该方向论文的地基
@@ -75,4 +75,53 @@ export function userPromptForResources({ node, project }: { node: KnowledgeNode;
 知识节点：${node.name}
 节点描述：${node.description || "（无）"}
 已有资料：${(node.resources || []).map((r) => r.title).join("、") || "（无）"}`;
+}
+
+export function systemPromptForPaperAnalysis(): string {
+  return `你是科研论文精读规划专家。用户给出将要精读的一篇论文（题录、摘要，可能附正文片段）以及其科研方向，你要拆解出「读懂这篇论文」所需的细粒度知识清单。
+
+要求：
+1. paperNode：论文本身，name 用论文原标题，description 用两三句话说明这篇论文的贡献、解决什么问题、为什么必读、学到什么程度；importance 一律 "core"；kind 一律 "paper"；estHours 2~6。
+2. nodes：8~20 个读懂该论文所需的具体知识点——论文中用到的概念、模型/方法、关键公式或定理、工具技能。粒度与格式要求同清单生成：每个节点只含一个具体知识点，name 为具体名词（中文），description 一句话说明它在论文中的作用与要学到什么程度，kind 五选一（concept/model/formula/paper/tool），importance 三选一，prereqs 只能引用「本次输出其他节点 name」或「keyRefs 里的引文标题」，构成有向无环图，estHours 0.5~4（支持 0.5）。
+3. keyRefs：从给定「参考文献题录」中挑出 3~6 篇理解该论文必读的引文（优先：被论文方法直接依赖的奠基工作、同方向的经典综述）；每篇 {title, why}，title 必须逐字复制题录中的标题，why 一句话说明它是论文的哪块基础。若未提供参考文献题录，则 keyRefs 返回空数组，宁可缺失也不要编造不存在的论文。
+4. 严禁循环依赖；概念→公式→模型→论文由浅入深。
+5. ${KIND_DESC}
+6. ${IMPORTANCE_DESC}
+
+只输出一个 JSON 对象，不要输出任何其他文字，格式：
+{"paperNode":{"name":"","description":"","kind":"paper","importance":"core","prereqs":[],"estHours":4},"nodes":[{"name":"","description":"","kind":"concept","importance":"core","prereqs":[],"estHours":1,"resources":[]}],"keyRefs":[{"title":"","why":""}]}`;
+}
+
+export function userPromptForPaperAnalysis({ meta, direction, extraText }: { meta: PaperMeta; direction: string; extraText?: string }): string {
+  return `科研方向：${direction || "（未提供）"}
+论文标题：${meta.title}
+作者：${meta.authors.join("、") || "（无）"}
+年份/期刊：${[meta.year, meta.venue].filter(Boolean).join(" / ") || "（无）"}
+摘要：${meta.abstract || "（无）"}
+${extraText ? `\n正文片段（用户粘贴）：\n${extraText.slice(0, 6000)}` : ""}
+参考文献题录（真实引文数据，keyRefs 只能从中选）：
+${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供，keyRefs 返回空数组）"}`;
+}
+
+export function systemPromptForCompare(): string {
+  return `你是科研学习辅导专家。用户给出 2~4 个知识点（含各自描述与类型），请输出一份异同对比讲解，帮助读者辨析并加深理解。
+
+输出为纯文本（不要 markdown 标记符号），按以下小节组织，每个小节一行标题加空行后接内容：
+【共同点】它们本质上共享什么、属于同一类问题/工具吗
+【关键差异】逐条对比，可用「A：…；B：…」形式，指出最核心的 2~4 条
+【联系与依赖】谁是谁的基础/改进，在学习和使用顺序上的含义
+【常见混淆点】初学者最容易搞混的地方与澄清
+【怎么选/怎么学】一句话实践建议
+
+总长度控制在 300~600 字，语言具体、直接，不要空话。`;
+}
+
+export function userPromptForCompare({ nodes }: { nodes: KnowledgeNode[] }): string {
+  return `请对比以下知识点：
+${nodes
+  .map(
+    (n, i) =>
+      `${i + 1}. ${n.name}（类型：${n.kind || "concept"}）\n   描述：${n.description || "（无）"}`
+  )
+  .join("\n")}`;
 }

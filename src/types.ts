@@ -3,6 +3,7 @@ export type {
   Mastery,
   Importance,
   ResourceType,
+  NodeKind,
   Resource,
   KnowledgeNode,
   Project,
@@ -11,4 +12,9 @@ export type {
   AISettings,
   TreeParams,
   TreeResult,
+  PaperRef,
+  PaperMeta,
+  PaperAnalysis,
+  Comparison,
+  CompareResult,
 } from "../shared/types";

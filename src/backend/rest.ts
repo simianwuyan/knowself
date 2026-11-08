@@ -1,5 +1,5 @@
 // 服务器模式的 REST 客户端（调用本机 Express 后端）
-import type { Project, ProjectSummary, Resource, SettingsView } from "../types";
+import type { CompareResult, PaperMeta, Project, ProjectSummary, Resource, SettingsView } from "../types";
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -104,5 +104,38 @@ export function addResource(projectId: string, nodeId: string, resource: Resourc
   return request<Project>(`/api/projects/${projectId}/nodes/${nodeId}/resources/add`, {
     method: "POST",
     body: JSON.stringify(resource),
+  });
+}
+
+export function analyzePaper(
+  projectId: string,
+  input: { meta: PaperMeta; direction: string; extraText?: string }
+) {
+  return request<{ project: Project; addedCount: number; skipped: string[] }>(
+    `/api/projects/${projectId}/analyze-paper`,
+    { method: "POST", body: JSON.stringify(input) }
+  );
+}
+
+export function compareNodes(projectId: string, nodeIds: string[]) {
+  return request<CompareResult>(`/api/projects/${projectId}/compare`, {
+    method: "POST",
+    body: JSON.stringify({ nodeIds }),
+  });
+}
+
+export function saveComparison(
+  projectId: string,
+  input: { nodeNames: string[]; text: string }
+) {
+  return request<Project>(`/api/projects/${projectId}/comparisons`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteComparison(projectId: string, comparisonId: string) {
+  return request<Project>(`/api/projects/${projectId}/comparisons/${comparisonId}`, {
+    method: "DELETE",
   });
 }

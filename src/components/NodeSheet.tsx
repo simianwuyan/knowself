@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { KnowledgeNode, Mastery, Resource } from "../types";
+import type { KnowledgeNode, Mastery, PaperRef, Resource } from "../types";
 import MasteryControl from "./MasteryControl";
 import { importanceLabel } from "../route";
 
@@ -20,6 +20,7 @@ export default function NodeSheet({
   onExpand,
   onMoreResources,
   onLiterature,
+  onAddRefNode,
   onDelete,
 }: {
   node: KnowledgeNode;
@@ -31,6 +32,7 @@ export default function NodeSheet({
   onExpand: () => void;
   onMoreResources: () => void;
   onLiterature: () => void;
+  onAddRefNode: (ref: PaperRef) => void;
   onDelete: () => void;
 }) {
   // 打开时锁定背景滚动
@@ -56,6 +58,9 @@ export default function NodeSheet({
               {importanceLabel(node.importance)} · 约 {node.estHours} 小时
             </span>
             <h3 className="truncate text-base font-bold">{node.name}</h3>
+            {node.fromPaper && (
+              <p className="mt-0.5 truncate text-[11px] text-indigo-500">📄 来自论文：{node.fromPaper}</p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -104,31 +109,72 @@ export default function NodeSheet({
             )}
           </div>
 
-          <div>
-            <h4 className="text-xs font-semibold text-slate-400">
-              推荐资料（{node.resources.length}）
-            </h4>
-            {node.resources.length === 0 ? (
-              <p className="mt-1.5 text-sm text-slate-400">暂无，可点击下方让 AI 推荐</p>
-            ) : (
+          {(node.resources.length > 0 || node.fromPaper) && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400">
+                推荐资料（{node.resources.length}）
+              </h4>
+              {node.resources.length === 0 ? (
+                <p className="mt-1.5 text-sm text-slate-400">暂无，可点击下方让 AI 推荐</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {node.resources.map((r, i) => {
+                    const meta = TYPE_META[r.type] || TYPE_META.book;
+                    return (
+                      <li key={i} className="rounded-xl bg-slate-50 p-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>
+                            {meta.icon} {meta.label}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
+                        </div>
+                        {r.note && <p className="mt-1 text-xs leading-relaxed text-slate-500">{r.note}</p>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {node.kind === "paper" && (node.refs?.length || 0) > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400">
+                参考文献（{node.refs!.length}）— 可将必读引文加入学习路线
+              </h4>
               <ul className="mt-2 space-y-2">
-                {node.resources.map((r, i) => {
-                  const meta = TYPE_META[r.type] || TYPE_META.book;
+                {node.refs!.map((ref, i) => {
+                  // 名称比较时去掉年份括号：引文节点名可能带/不带年份
+                  const strip = (s: string) =>
+                    s.toLowerCase().replace(/\s+/g, "").replace(/[（(]\d{4}[)）]/g, "");
+                  const exists = allNodes.some((n) => strip(n.name) === strip(ref.title));
                   return (
                     <li key={i} className="rounded-xl bg-slate-50 p-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>
-                          {meta.icon} {meta.label}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
+                      <p className="text-xs font-medium leading-snug text-slate-700">
+                        {i + 1}. {ref.title}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        {ref.year && <span className="text-[11px] text-slate-400">{ref.year}</span>}
+                        {exists ? (
+                          <span className="rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-600">
+                            ✓ 已在路线中
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onAddRefNode(ref)}
+                            disabled={busy}
+                            className="rounded-lg bg-indigo-600 px-2 py-1 text-[11px] font-medium text-white active:bg-indigo-700 disabled:bg-slate-300"
+                          >
+                            ＋ 加入学习路线
+                          </button>
+                        )}
                       </div>
-                      {r.note && <p className="mt-1 text-xs leading-relaxed text-slate-500">{r.note}</p>}
                     </li>
                   );
                 })}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             <button
