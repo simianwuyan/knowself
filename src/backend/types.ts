@@ -75,6 +75,8 @@ export interface Backend {
   ): Promise<{ project: Project; addedCount: number; skipped: string[] }>;
   /** AI 对比 2~4 个知识点（不落库） */
   compareNodes(projectId: string, nodeIds: string[]): Promise<CompareResult>;
+  /** 生成/重新生成知识点学习卡（概括+自测题），保存到节点并返回项目 */
+  generateStudyCard(projectId: string, nodeId: string): Promise<Project>;
   /** 保存对比记录 */
   saveComparison(
     projectId: string,

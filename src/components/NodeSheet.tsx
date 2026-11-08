@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { KnowledgeNode, Mastery, PaperRef, Resource } from "../types";
 import MasteryControl from "./MasteryControl";
+import StudyQuizSheet from "./StudyQuizSheet";
 import { importanceLabel } from "../route";
 
 const TYPE_META: Record<Resource["type"], { label: string; cls: string; icon: string }> = {
@@ -21,6 +22,7 @@ export default function NodeSheet({
   onMoreResources,
   onLiterature,
   onAddRefNode,
+  onGenerateStudy,
   onDelete,
 }: {
   node: KnowledgeNode;
@@ -33,8 +35,10 @@ export default function NodeSheet({
   onMoreResources: () => void;
   onLiterature: () => void;
   onAddRefNode: (ref: PaperRef) => void;
+  onGenerateStudy: () => void;
   onDelete: () => void;
 }) {
+  const [showQuiz, setShowQuiz] = useState(false);
   // 打开时锁定背景滚动
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -101,6 +105,47 @@ export default function NodeSheet({
             <div className="mt-2">
               <MasteryControl value={node.mastery} onChange={onMasteryChange} disabled={busy} />
             </div>
+          </div>
+
+          {/* 学习卡：概括 + 自测（按需生成） */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-400">🃏 学习卡（AI 概括 + 自测）</h4>
+            {node.study ? (
+              <>
+                <details className="mt-2 rounded-xl bg-indigo-50/70 p-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-indigo-700">
+                    查看 AI 概括
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-slate-700">
+                    {node.study.summary}
+                  </p>
+                </details>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setShowQuiz(true)}
+                    disabled={busy || node.study.questions.length === 0}
+                    className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white active:bg-slate-700 disabled:bg-slate-300"
+                  >
+                    ▶ 开始自测（{node.study.questions.length} 题）
+                  </button>
+                  <button
+                    onClick={onGenerateStudy}
+                    disabled={busy}
+                    className="rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-medium text-slate-600 active:bg-slate-100 disabled:opacity-50"
+                  >
+                    🔄 重新生成
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                onClick={onGenerateStudy}
+                disabled={busy}
+                className="mt-2 w-full rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 px-3 py-3 text-xs font-semibold text-indigo-700 active:bg-indigo-100 disabled:opacity-50"
+              >
+                ✨ 生成学习卡（AI 概括 + 自测题，像背单词一样检验掌握程度）
+              </button>
+            )}
           </div>
 
           <div>
@@ -244,6 +289,21 @@ export default function NodeSheet({
             删除该知识点
           </button>
         </div>
+
+        {/* 背单词式自测卡片流 */}
+        {showQuiz && node.study && (
+          <StudyQuizSheet
+            nodeName={node.name}
+            card={node.study}
+            busy={busy}
+            onClose={() => setShowQuiz(false)}
+            onFinish={() => {
+              /* 结果已在完成页展示 */
+            }}
+            onSetMastery={(m) => onMasteryChange(m)}
+            currentMastery={node.mastery}
+          />
+        )}
       </div>
     </div>
   );

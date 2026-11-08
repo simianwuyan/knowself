@@ -8,6 +8,7 @@ import {
   testConnectionAI,
   analyzePaperAI,
   compareNodesAI,
+  generateStudyCardAI,
 } from "../shared/ai-client.ts";
 
 function current() {
@@ -55,4 +56,9 @@ export function analyzePaper(input) {
 export function compareNodes(nodes) {
   const { settings, useMock } = current();
   return compareNodesAI(settings, useMock, nodes);
+}
+
+export function generateStudyCard(node, project) {
+  const { settings, useMock } = current();
+  return generateStudyCardAI(settings, useMock, node, project);
 }

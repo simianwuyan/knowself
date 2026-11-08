@@ -133,6 +133,12 @@ export function compareNodes(projectId: string, nodeIds: string[]) {
   });
 }
 
+export function generateStudyCard(projectId: string, nodeId: string) {
+  return request<Project>(`/api/projects/${projectId}/nodes/${nodeId}/study`, {
+    method: "POST",
+  });
+}
+
 export function saveComparison(
   projectId: string,
   input: { nodeNames: string[]; text: string }

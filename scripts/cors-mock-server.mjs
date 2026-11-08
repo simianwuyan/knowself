@@ -41,7 +41,18 @@ const server = http.createServer((req, res) => {
       /* ignore */
     }
     let content;
-    if (/以读懂这篇论文为中心/.test(userMsg)) {
+    if (/学习卡/.test(userMsg)) {
+      // 知识点学习卡：概括 + 自测题
+      const name = (userMsg.match(/知识节点：(.+?)（/) || [])[1] || "该知识点";
+      content = JSON.stringify({
+        summary: `（Mock 演示）${name} 是知识链条中的关键一环：先建立核心直觉，再记忆精确定义，最后动手推一个小例子验证理解。在论文语境中，它出现在方法部分的关键推导处——读论文遇到它时应能立刻对应到这里学的内容。常见误区是只记结论不记适用条件，套用前要逐条核对前提。`,
+        questions: [
+          { q: `用一句话概括：${name} 解决的核心问题是什么？`, a: "（Mock 参考答案）点出问题场景与改进点两个要素。" },
+          { q: `${name} 的关键假设或适用条件有哪些？`, a: "（Mock 参考答案）至少说出 2 条前提，并解释假设不成立的后果。" },
+          { q: `它在论文方法流程中的位置与上下游是什么？`, a: "（Mock 参考答案）指出上游输入、下游输出、对应论文的哪一节。" },
+        ],
+      });
+    } else if (/以读懂这篇论文为中心/.test(userMsg)) {
       // 论文精读计划
       const title = (userMsg.match(/论文标题：(.+)/) || [])[1]?.trim() || "Mock 论文";
       const ref1 = (userMsg.match(/^1\. (.+)$/m) || [])[1] || "Mock 引文A：领域奠基工作";

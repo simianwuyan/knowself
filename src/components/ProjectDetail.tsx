@@ -12,6 +12,7 @@ import {
   expandNode,
   fetchProject,
   fetchSettings,
+  generateStudyCard,
   generateTree,
   recommendResources,
   renameProject,
@@ -245,6 +246,11 @@ export default function ProjectDetail({ id }: { id: string }) {
         }),
       "引文已加入学习路线"
     );
+  }
+
+  function handleGenerateStudy() {
+    if (!sheetNodeId) return;
+    void run(() => generateStudyCard(id, sheetNodeId), "学习卡已生成");
   }
 
   if (error) {
@@ -579,6 +585,7 @@ export default function ProjectDetail({ id }: { id: string }) {
             setSheetNodeId(null);
           }}
           onAddRefNode={handleAddRefNode}
+          onGenerateStudy={handleGenerateStudy}
           onDelete={() => {
             if (window.confirm(`删除知识点「${sheetNode.name}」？`)) {
               run(() => deleteNode(id, sheetNode.id), "已删除").then(() =>

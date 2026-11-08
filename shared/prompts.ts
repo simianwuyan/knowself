@@ -132,8 +132,27 @@ ${meta.extraText ? `\n正文片段（excerpt 必须逐字摘自摘要或以下�
 ${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供）"}`;
 }
 
-export function systemPromptForCompare(): string {
-  return `你是科研学习辅导专家。用户给出 2~4 个知识点（含各自描述与类型），请输出一份异同对比讲解，帮助读者辨析并加深理解。
+export function systemPromptForStudyCard(): string {
+  return `你是科研学习辅导专家。用户正在精读论文/规划科研学习，针对给定的知识点（含描述、类型，可能附论文原文片段与用户掌握状态），生成一张「学习卡」帮助用户理解并自测。
+
+输出两部分：
+1. summary（概括）：300~500 字，2~3 段——这个知识点是什么、核心机制/内容是什么、在论文或该科研方向中起什么作用、学习的要点与易错处。语言具体、直接，不要空话。
+2. questions（自测题）：3~5 个，按由浅到深排列：概念复述 → 机制/原因理解 → 应用或推导。每个问题 {q, a}：q 是具体可自测的问题（像背单词卡片一样，用户看 q 应能立刻自测）；a 是参考答案与解析（含为什么、常见误区），60~150 字。
+3. 结合给出的论文原文片段出题，使自测贴合论文语境。
+
+只输出一个 JSON 对象，不要输出任何其他文字，格式：
+{"summary":"","questions":[{"q":"","a":""}]}`;
+}
+
+export function userPromptForStudyCard({ node, project }: { node: KnowledgeNode; project: Project }): string {
+  return `科研方向：${project.direction || project.title}
+知识节点：${node.name}（类型：${node.kind || "concept"}）
+节点描述：${node.description || "（无）"}
+${node.excerpt ? `论文原文片段：${node.excerpt}` : ""}
+用户当前掌握状态：${node.mastery === "mastered" ? "已掌握（出题可更深入）" : node.mastery === "partial" ? "部分掌握（重点查漏）" : "未掌握（从基础问起）"}`;
+}
+
+export function systemPromptForCompare(): string {  return `你是科研学习辅导专家。用户给出 2~4 个知识点（含各自描述与类型），请输出一份异同对比讲解，帮助读者辨析并加深理解。
 
 输出为纯文本（不要 markdown 标记符号），按以下小节组织，每个小节一行标题加空行后接内容：
 【共同点】它们本质上共享什么、属于同一类问题/工具吗

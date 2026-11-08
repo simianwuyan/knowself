@@ -18,4 +18,5 @@ export type {
   ProjectPaper,
   Comparison,
   CompareResult,
+  StudyCard,
 } from "../shared/types";

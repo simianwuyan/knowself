@@ -6,6 +6,7 @@ import type {
   PaperAnalysis,
   PaperMeta,
   PaperPlanParams,
+  StudyCard,
   TreeParams,
   TreeResult,
 } from "./types.ts";
@@ -147,6 +148,30 @@ export async function mockAnalyzePaper({ meta }: { meta: PaperMeta }): Promise<P
       { title: refTitle, why: "（Mock）论文方法的直接基础，先读它才能理解改进点" },
       { title: refTitle2, why: "（Mock）前置论文，提供了本论文对比的 baseline" },
     ],
+  };
+}
+
+/** 学习卡 Mock：概括 + 自测题示例 */
+export async function mockStudyCard({ node }: { node: KnowledgeNode }): Promise<StudyCard> {
+  await sleep(1400);
+  const name = node.name || "知识点";
+  return {
+    summary: `（Mock 演示）${name} 是该知识链条中的关键一环。理解它要先抓住核心直觉：它解决什么问题、为什么已有方法不够、它的关键假设是什么。掌握的标志是能不看资料复述其核心思想，并能说清它与相邻知识点的边界。在论文语境中，${name} 通常出现在方法部分的关键推导处——读论文遇到它时，应当能立刻对应到这里学的内容，而不是当作黑盒跳过。学习要点：先用图示建立直觉，再记忆精确定义，最后动手推一个小例子验证理解；常见误区是把适用条件想当然，套用前要逐条核对前提。`,
+    questions: [
+      {
+        q: `用一句话概括：${name} 解决的核心问题是什么？`,
+        a: `（Mock 参考答案）${name} 针对的是「已有方法在某种条件下失效/低效」的问题，通过引入新的机制/表示来克服它。答题时应点出问题场景与改进点两个要素。`,
+      },
+      {
+        q: `${name} 的关键假设或适用条件有哪些？`,
+        a: `（Mock 参考答案）至少能说出 2 条前提假设，并解释若假设不成立会发生什么。常见误区：只记结论不记条件，导致在错误场景下套用。`,
+      },
+      {
+        q: `在论文中，${name} 出现在哪个环节、与哪些公式/模块衔接？`,
+        a: `（Mock 参考答案）应能指出它在方法流程中的位置：上游输入是什么、下游输出给谁、对应论文第几节的哪个推导。说不出来说明还停留在概念层，需要回到原文对照。`,
+      },
+    ],
+    generatedAt: Date.now(),
   };
 }
 

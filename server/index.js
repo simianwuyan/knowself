@@ -19,6 +19,7 @@ import {
   testConnection,
   analyzePaper,
   compareNodes,
+  generateStudyCard,
 } from "./ai.js";
 import { mergePaperAnalysis } from "../shared/merge.ts";
 
@@ -238,6 +239,19 @@ app.post("/api/projects/:id/analyze-paper", wrap(async (req, res) => {
   const outcome = mergePaperAnalysis(project, analysis, meta);
   saveProject(project);
   ok(res, { project, addedCount: outcome.addedCount, skipped: outcome.skipped });
+}));
+
+// AI 生成知识点学习卡（概括 + 自测题），保存到节点
+app.post("/api/projects/:id/nodes/:nodeId/study", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const node = project.nodes.find((n) => n.id === req.params.nodeId);
+  if (!node) return res.status(404).json({ error: "节点不存在" });
+  const card = await generateStudyCard(node, project);
+  node.study = card;
+  project.updatedAt = Date.now();
+  saveProject(project);
+  ok(res, project);
 }));
 
 // AI 对比知识点（不落库）

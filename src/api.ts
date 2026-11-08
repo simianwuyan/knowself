@@ -87,6 +87,8 @@ export const analyzePaper = (
 export const compareNodes = (pid: string, nodeIds: string[]) =>
   b().compareNodes(pid, nodeIds) as Promise<CompareResult>;
 
+export const generateStudyCard = (pid: string, nid: string) => b().generateStudyCard(pid, nid);
+
 export const saveComparison = (pid: string, input: { nodeNames: string[]; text: string }) =>
   b().saveComparison(pid, input);
 

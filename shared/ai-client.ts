@@ -12,6 +12,7 @@ import type {
   Project,
   Resource,
   ResourceType,
+  StudyCard,
   TreeParams,
   TreeResult,
 } from "./types.ts";
@@ -28,6 +29,8 @@ import {
   userPromptForPaperPlan,
   systemPromptForCompare,
   userPromptForCompare,
+  systemPromptForStudyCard,
+  userPromptForStudyCard,
 } from "./prompts.ts";
 import {
   mockTree,
@@ -37,6 +40,7 @@ import {
   mockAnalyzePaper,
   mockCompare,
   mockPaperPlan,
+  mockStudyCard,
 } from "./mock.ts";
 import { searchWorks } from "./lit-search.ts";
 
@@ -450,6 +454,36 @@ export async function analyzePaperAI(
   const nodes = cleanNodeList(rawNodes, validNames, 1.5, paperName);
   const paperNode = cleanNodeList([{ ...pn, kind: "paper", importance: "core" }], validNames, 4)[0];
   return { paperNode, nodes, keyRefs };
+}
+
+/** 学习卡：知识点概括 + 自测题（用户点进知识点后按需生成） */
+export async function generateStudyCardAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  node: KnowledgeNode,
+  project: Project
+): Promise<StudyCard> {
+  if (isMockSettings(settings, useMock)) return mockStudyCard({ node });
+  const json = await chatJson(
+    settings,
+    systemPromptForStudyCard(),
+    userPromptForStudyCard({ node, project }),
+    { temperature: 0.5 }
+  );
+  const summary = typeof json.summary === "string" ? json.summary.trim() : "";
+  const rawQs = Array.isArray(json.questions) ? json.questions : [];
+  const questions = rawQs
+    .filter(
+      (q): q is { q: string; a: string } =>
+        Boolean(q) &&
+        typeof (q as { q?: unknown }).q === "string" &&
+        Boolean((q as { q: string }).q.trim()) &&
+        typeof (q as { a?: unknown }).a === "string"
+    )
+    .map((q) => ({ q: q.q.trim().slice(0, 300), a: q.a.trim().slice(0, 800) }))
+    .slice(0, 6);
+  if (!summary && !questions.length) throw new Error("AI 未返回学习卡内容，请重试");
+  return { summary, questions, generatedAt: Date.now() };
 }
 
 /** AI 对比 2~4 个知识点，返回纯文本讲解 */

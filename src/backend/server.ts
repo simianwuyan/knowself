@@ -50,6 +50,8 @@ export const serverBackend: Backend = {
 
   compareNodes: (pid, nodeIds) => rest.compareNodes(pid, nodeIds),
 
+  generateStudyCard: (pid, nid) => rest.generateStudyCard(pid, nid),
+
   saveComparison: (pid, input) => rest.saveComparison(pid, input),
 
   deleteComparison: (pid, cid) => rest.deleteComparison(pid, cid),

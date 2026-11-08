@@ -16,6 +16,13 @@ export interface Resource {
   pdfUrl?: string;
 }
 
+/** 知识点学习卡（按需 AI 生成，存于节点） */
+export interface StudyCard {
+  summary: string; // 概括讲解
+  questions: { q: string; a: string }[]; // 自测问题与解析
+  generatedAt: number;
+}
+
 export interface KnowledgeNode {
   id: string;
   name: string;
@@ -30,6 +37,8 @@ export interface KnowledgeNode {
   refs?: PaperRef[]; // 参考文献题录（仅 paper 节点）
   /** 论文原文中与该知识点直接对应的片段（逐字摘录，可能为空） */
   excerpt?: string;
+  /** AI 学习卡：概括 + 自测题（用户点进知识点后按需生成） */
+  study?: StudyCard;
 }
 
 export interface PaperRef {

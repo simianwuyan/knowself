@@ -17,6 +17,7 @@ import {
   testConnectionAI,
   analyzePaperAI,
   compareNodesAI,
+  generateStudyCardAI,
 } from "../../shared/ai-client";
 import { mergePaperAnalysis, normName } from "../../shared/merge";
 import { encryptWithPin, decryptWithPin } from "../crypto";
@@ -381,6 +382,17 @@ export const localBackend: Backend = {
       .filter((n): n is KnowledgeNode => Boolean(n));
     const { settings, useMock } = settingsWith();
     return compareNodesAI(settings, useMock, nodes) as Promise<CompareResult>;
+  },
+
+  async generateStudyCard(pid, nid) {
+    const project = loadProject(pid);
+    const node = project.nodes.find((n) => n.id === nid);
+    if (!node) throw new Error("节点不存在");
+    const { settings, useMock } = settingsWith();
+    const card = await generateStudyCardAI(settings, useMock, node, project);
+    node.study = card;
+    project.updatedAt = Date.now();
+    return putProject(project);
   },
 
   async saveComparison(pid, input) {
