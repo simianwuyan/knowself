@@ -1,5 +1,5 @@
 // 本地模式：数据存浏览器 localStorage，AI 由浏览器直连（无需任何服务器）
-import type { Backend, TestResult } from "./types";
+import type { Backend, KeyLockState, TestResult } from "./types";
 import type {
   AISettings,
   CompareResult,
@@ -18,35 +18,79 @@ import {
   compareNodesAI,
 } from "../../shared/ai-client";
 import { mergePaperAnalysis, normName } from "../../shared/merge";
+import { encryptWithPin, decryptWithPin } from "../crypto";
 
 const LS_SETTINGS = "knowself:settings";
 const LS_PROJECTS = "knowself:projects";
+const SS_KEY_SKIP = "knowself:keySkip";
 
-interface LocalSettings extends AISettings {
+interface LocalSettings {
+  baseUrl: string;
+  model: string;
   useMock: boolean;
+  /** 加密保存的 API Key（PIN 加密，格式 salt.iv.ct） */
+  keyEnc?: string;
+  /** 旧版本的明文 Key（兼容读取，重新保存后升级为加密） */
+  apiKey?: string;
 }
 
-function loadSettings(): LocalSettings {
+/** 解锁后的 Key 只保存在内存中，页面关闭即消失 */
+let memKey: string | null = null;
+
+function loadSettingsRaw(): LocalSettings {
   try {
     const raw = localStorage.getItem(LS_SETTINGS);
     if (raw) return { useMock: false, ...JSON.parse(raw) };
   } catch {
     /* 损坏则重置 */
   }
-  return { baseUrl: "", apiKey: "", model: "", useMock: false };
+  return { baseUrl: "", model: "", useMock: false };
 }
 
 function saveSettingsRaw(s: LocalSettings) {
   localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
 }
 
+/** 当前 Key 的锁定状态 */
+export function keyLockState(): KeyLockState {
+  const s = loadSettingsRaw();
+  if (s.keyEnc) {
+    if (memKey) return "unlocked";
+    return sessionStorage.getItem(SS_KEY_SKIP) ? "none" : "locked";
+  }
+  if (s.apiKey) return "unlocked"; // 旧版明文，兼容可用
+  return "none";
+}
+
+/** 用 PIN 解锁已加密保存的 Key（解密结果仅存内存） */
+export async function unlockKey(pin: string): Promise<void> {
+  const s = loadSettingsRaw();
+  if (!s.keyEnc) throw new Error("未设置加密保存的 Key");
+  memKey = await decryptWithPin(pin, s.keyEnc);
+  sessionStorage.removeItem(SS_KEY_SKIP);
+}
+
+/** 本会话跳过解锁（进入 Mock 模式） */
+export function skipUnlock(): void {
+  sessionStorage.setItem(SS_KEY_SKIP, "1");
+}
+
+function currentKey(): string {
+  const s = loadSettingsRaw();
+  return memKey ?? s.apiKey ?? "";
+}
+
 function toView(s: LocalSettings): SettingsView {
+  const hasKey = Boolean(s.keyEnc || s.apiKey || memKey);
+  const legacyPlainKey = Boolean(s.apiKey && !s.keyEnc);
+  const locked = keyLockState() === "locked";
   return {
     baseUrl: s.baseUrl,
     model: s.model,
     useMock: s.useMock,
-    hasKey: Boolean(s.apiKey),
-    isMock: s.useMock || !s.apiKey || !s.baseUrl,
+    hasKey,
+    legacyPlainKey,
+    isMock: s.useMock || !s.baseUrl || !hasKey || locked,
   };
 }
 
@@ -94,10 +138,10 @@ function toSummary(p: Project): ProjectSummary {
 }
 
 function settingsWith(patch?: Partial<AISettings>): { settings: AISettings; useMock: boolean } {
-  const s = loadSettings();
+  const s = loadSettingsRaw();
   const settings: AISettings = {
     baseUrl: patch?.baseUrl !== undefined ? patch.baseUrl : s.baseUrl,
-    apiKey: patch?.apiKey !== undefined ? patch.apiKey : s.apiKey,
+    apiKey: patch?.apiKey !== undefined ? patch.apiKey : currentKey(),
     model: patch?.model !== undefined ? patch.model : s.model,
   };
   return { settings, useMock: s.useMock };
@@ -110,16 +154,42 @@ function newId(): string {
 export const localBackend: Backend = {
   mode: "local",
 
+  keyLockState,
+
+  unlockKey,
+
+  skipUnlock,
+
   async fetchSettings() {
-    return toView(loadSettings());
+    return toView(loadSettingsRaw());
   },
 
   async saveSettings(patch) {
-    const s = loadSettings();
+    const s = loadSettingsRaw();
     if (typeof patch.baseUrl === "string") s.baseUrl = patch.baseUrl.trim();
     if (typeof patch.model === "string") s.model = patch.model.trim();
     if (typeof patch.useMock === "boolean") s.useMock = patch.useMock;
-    if (typeof patch.apiKey === "string") s.apiKey = patch.apiKey.trim();
+    if (typeof patch.apiKey === "string") {
+      const k = patch.apiKey.trim();
+      if (k === "") {
+        // 空 = 清除
+        delete s.keyEnc;
+        delete s.apiKey;
+        memKey = null;
+        sessionStorage.removeItem(SS_KEY_SKIP);
+      } else if (typeof patch.pin === "string" && patch.pin.length >= 4) {
+        // 加密保存（本地模式）
+        s.keyEnc = await encryptWithPin(patch.pin, k);
+        delete s.apiKey;
+        memKey = k;
+        sessionStorage.removeItem(SS_KEY_SKIP);
+      } else {
+        // 无 PIN：明文保存（服务器模式习惯 / 兜底）
+        s.apiKey = k;
+        delete s.keyEnc;
+        memKey = k;
+      }
+    }
     saveSettingsRaw(s);
     return toView(s);
   },
@@ -331,7 +401,7 @@ export const localBackend: Backend = {
         mode: "local",
         exportedAt: new Date().toISOString(),
         settings: (() => {
-          const s = loadSettings();
+          const s = loadSettingsRaw();
           // 备份不含 API Key，避免明文泄露
           return { baseUrl: s.baseUrl, model: s.model, useMock: s.useMock };
         })(),
@@ -358,7 +428,7 @@ export const localBackend: Backend = {
     for (const p of projects) all[p.id] = p;
     saveAllProjects(all);
     if (parsed.settings) {
-      const s = loadSettings();
+      const s = loadSettingsRaw();
       if (typeof parsed.settings.baseUrl === "string") s.baseUrl = parsed.settings.baseUrl;
       if (typeof parsed.settings.model === "string") s.model = parsed.settings.model;
       if (typeof parsed.settings.useMock === "boolean") s.useMock = parsed.settings.useMock;

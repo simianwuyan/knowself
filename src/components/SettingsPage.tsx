@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState("");
   const [mode] = useState<"server" | "local">(() => backendMode());
+  const [pin, setPin] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +44,10 @@ export default function SettingsPage() {
   }, []);
 
   async function onSave() {
+    if (mode === "local" && apiKey.trim() && pin.trim().length < 4) {
+      toast("请设置 4~6 位解锁码（用于加密保存 API Key）", "error");
+      return;
+    }
     setSaving(true);
     try {
       const s = await saveSettings({
@@ -50,9 +55,11 @@ export default function SettingsPage() {
         apiKey: apiKey.trim(), // 留空 = 不修改已保存的 Key
         model: model.trim(),
         useMock,
+        pin: mode === "local" && apiKey.trim() ? pin.trim() : undefined,
       });
       setInfo(s);
       setApiKey("");
+      setPin("");
       toast("设置已保存", "success");
     } catch (e) {
       toast(e instanceof Error ? e.message : "保存失败", "error");
@@ -128,7 +135,9 @@ export default function SettingsPage() {
         <div className="rounded-xl bg-slate-100 p-3 text-xs leading-relaxed text-slate-600">
           {mode === "server"
             ? "🖥 服务器模式：数据保存在电脑端，AI 经电脑代理（手机与电脑需同局域网）"
-            : "📱 本地模式：数据保存在本机浏览器，AI 由浏览器直连，不依赖电脑"}
+            : `📱 本地模式：数据保存在本机浏览器，AI 由浏览器直连${
+                info?.hasKey && !info?.legacyPlainKey ? " · 🔒 Key 已加密保存" : ""
+              }`}
         </div>
 
         <div
@@ -185,6 +194,31 @@ export default function SettingsPage() {
             placeholder={info?.hasKey ? "••••••••" : "sk-..."}
             className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-indigo-400 focus:bg-white"
           />
+
+          {mode === "local" && apiKey.trim() !== "" && (
+            <>
+              <label className="mt-3 block text-xs font-medium text-slate-500">
+                🔒 解锁码（4~6 位，用于加密保存 Key；启动时需输入解锁）
+              </label>
+              <input
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                type="password"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="例如 582913"
+                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm tracking-[0.4em] outline-none focus:border-indigo-400 focus:bg-white"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Key 将以解锁码加密后存储，明文不落盘；忘记解锁码可清除后重填
+              </p>
+            </>
+          )}
+          {mode === "local" && info?.legacyPlainKey && (
+            <p className="mt-2 rounded-lg bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-700">
+              ⚠️ 当前 Key 为旧版明文存储。重新填写 Key 并设置解锁码即可升级为加密保存。
+            </p>
+          )}
 
           <label className="mt-3 block text-xs font-medium text-slate-500">模型名称</label>
           <input

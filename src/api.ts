@@ -41,6 +41,12 @@ export const fetchSettings = () => b().fetchSettings();
 export const saveSettings = (patch: Parameters<Backend["saveSettings"]>[0]) =>
   b().saveSettings(patch);
 
+export const keyLockState = () => b().keyLockState();
+
+export const unlockKey = (pin: string) => b().unlockKey(pin);
+
+export const skipUnlock = () => b().skipUnlock();
+
 export const testConnection = (patch: Parameters<Backend["testConnection"]>[0]) =>
   b().testConnection(patch);
 

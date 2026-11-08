@@ -1,6 +1,8 @@
 // 后端接口抽象：同一套函数签名，两种实现（服务器模式 / 本地模式）
 import type { CompareResult, PaperMeta, Project, ProjectSummary, Resource, SettingsView } from "../types";
 
+export type KeyLockState = "none" | "unlocked" | "locked";
+
 export interface TestResult {
   reply: string;
   ms: number;
@@ -15,7 +17,15 @@ export interface Backend {
     apiKey?: string;
     model?: string;
     useMock?: boolean;
+    /** 仅本地模式：提供 4~6 位 PIN 时把 Key 加密保存 */
+    pin?: string;
   }): Promise<SettingsView>;
+  /** 本地模式的 Key 锁定状态；服务器模式恒为 "none" */
+  keyLockState(): KeyLockState;
+  /** 用 PIN 解锁已加密保存的 Key */
+  unlockKey(pin: string): Promise<void>;
+  /** 本会话跳过解锁（进入 Mock 演示模式） */
+  skipUnlock(): void;
   testConnection(patch: {
     baseUrl?: string;
     apiKey?: string;

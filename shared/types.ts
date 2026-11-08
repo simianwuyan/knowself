@@ -91,6 +91,8 @@ export interface SettingsView {
   useMock: boolean;
   hasKey: boolean;
   isMock: boolean;
+  /** 仅本地模式：Key 仍为旧版明文存储（重新保存即可升级为加密） */
+  legacyPlainKey?: boolean;
 }
 
 export interface AISettings {

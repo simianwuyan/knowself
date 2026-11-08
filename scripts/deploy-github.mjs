@@ -176,6 +176,8 @@ try {
 } catch (err) {
   if (err.status === 409) {
     console.log("✓ GitHub Pages 已处于开启状态");
+  } else if (err.status === 403) {
+    console.log("⚠ Token 无 Pages 权限，跳过开启步骤（若站点已开过则不影响；首次部署需在仓库 Settings → Pages 手动开启）");
   } else {
     throw err;
   }

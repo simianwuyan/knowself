@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { ToastProvider } from "./toast";
+import { keyLockState } from "./api";
+import UnlockGate from "./components/UnlockGate";
 import ProjectList from "./components/ProjectList";
 import CreateProject from "./components/CreateProject";
 import ProjectDetail from "./components/ProjectDetail";
@@ -24,12 +26,18 @@ function parseHash(): Route {
 
 export default function App() {
   const [route, setRoute] = useState<Route>(parseHash);
+  // 本地模式：Key 已加密保存且未解锁时，先显示解锁门
+  const [locked, setLocked] = useState(() => keyLockState() === "locked");
 
   useEffect(() => {
     const onChange = () => setRoute(parseHash());
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
+
+  if (locked) {
+    return <UnlockGate onUnlocked={() => setLocked(false)} />;
+  }
 
   return (
     <ToastProvider>

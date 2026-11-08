@@ -6,6 +6,16 @@ import * as rest from "./rest";
 export const serverBackend: Backend = {
   mode: "server",
 
+  keyLockState: () => "none",
+
+  async unlockKey() {
+    throw new Error("服务器模式无需解锁");
+  },
+
+  skipUnlock() {
+    /* 服务器模式无此概念 */
+  },
+
   fetchSettings: () => rest.fetchSettings(),
 
   saveSettings: (patch) => rest.saveSettings(patch),
