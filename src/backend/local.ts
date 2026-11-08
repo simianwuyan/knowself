@@ -402,6 +402,7 @@ export const localBackend: Backend = {
       id: crypto.randomUUID(),
       nodeNames: input.nodeNames,
       text: input.text,
+      questions: input.questions,
       createdAt: Date.now(),
     });
     project.updatedAt = Date.now();

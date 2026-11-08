@@ -89,8 +89,11 @@ export const compareNodes = (pid: string, nodeIds: string[]) =>
 
 export const generateStudyCard = (pid: string, nid: string) => b().generateStudyCard(pid, nid);
 
-export const saveComparison = (pid: string, input: { nodeNames: string[]; text: string }) =>
-  b().saveComparison(pid, input);
+export const saveComparison = (pid: string, input: {
+  nodeNames: string[];
+  text: string;
+  questions?: { q: string; a: string }[];
+}) => b().saveComparison(pid, input);
 
 export const deleteComparison = (pid: string, comparisonId: string) =>
   b().deleteComparison(pid, comparisonId);

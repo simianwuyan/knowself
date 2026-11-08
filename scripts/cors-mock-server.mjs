@@ -97,8 +97,9 @@ const server = http.createServer((req, res) => {
         ],
       });
     } else if (/请对比以下知识点/.test(userMsg)) {
-      // 知识点对比：返回纯文本（compareNodesAI 直接使用消息正文）
-      content = `【共同点】（Mock 演示）所选知识点同属一条知识链条，服务于同一类研究问题。
+      // 知识点对比：text + 对比自测题
+      content = JSON.stringify({
+        text: `【共同点】（Mock 演示）所选知识点同属一条知识链条，服务于同一类研究问题。
 
 【关键差异】
 前者侧重建立概念与直觉；后者引入可操作的模型/公式，直接对应论文方法部分。
@@ -109,7 +110,12 @@ const server = http.createServer((req, res) => {
 
 【怎么选/怎么学】先掌握概念再攻推导，最后互相推导一遍检验理解。
 
-（Mock 演示数据，连接真实 AI 后将生成真实对比）`;
+（Mock 演示数据，连接真实 AI 后将生成真实对比）`,
+        questions: [
+          { q: "不看上文：说出两者的核心差异（至少 2 条）", a: "（Mock 参考答案）① 定位：概念直觉 vs 可操作模型；② 层次：后者建立在前者之上。" },
+          { q: "两者的学习顺序应如何安排？为什么？", a: "（Mock 参考答案）先概念后公式：公式的推导依赖概念基础。" },
+        ],
+      });
     } else if (/科研方向/.test(userMsg) && /学习目标|已有背景|（未提供/.test(userMsg)) {
       const dir = (userMsg.match(/科研方向：(.+)/) || [])[1] || "测试方向";
       content = JSON.stringify(treeJson(dir.trim()));

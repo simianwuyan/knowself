@@ -14,7 +14,10 @@ export default function StudyQuizSheet({
   onClose,
   onFinish,
   onSetMastery,
+  masteryTargetLabel,
   currentMastery,
+  currentAllMastered,
+  currentAllPartial,
 }: {
   nodeName: string;
   card: StudyCard;
@@ -22,9 +25,13 @@ export default function StudyQuizSheet({
   onClose: () => void;
   /** 自测完成：全部答对 true / 有不会的 false */
   onFinish: (allCorrect: boolean, correctCount: number, total: number) => void;
-  /** 完成页可一键更新掌握度 */
-  onSetMastery?: (m: Mastery) => void;
+  /** 完成页的掌握度选择（是否改变由用户决定） */
+  onSetMastery?: (m: Mastery | "keep") => void;
+  /** 掌握度作用对象说明（如「这两个知识点」），缺省为该知识点 */
+  masteryTargetLabel?: string;
   currentMastery?: Mastery;
+  currentAllMastered?: boolean;
+  currentAllPartial?: boolean;
 }) {
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -155,21 +162,34 @@ export default function StudyQuizSheet({
             ))}
           {phase === "done" && (
             <>
+              <p className="text-center text-xs font-medium text-slate-500">
+                自测完成，是否更新{masteryTargetLabel || "该知识点"}的掌握程度？（由你决定）
+              </p>
               {onSetMastery && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
                   <button
                     onClick={() => onSetMastery("mastered")}
-                    disabled={busy || currentMastery === "mastered"}
-                    className="rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white active:bg-emerald-700 disabled:opacity-50"
+                    disabled={busy || currentMastery === "mastered" || currentAllMastered === true}
+                    className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white active:bg-emerald-700 disabled:opacity-50"
                   >
-                    {currentMastery === "mastered" ? "✓ 已是已掌握" : "标记为已掌握"}
+                    {currentMastery === "mastered" || currentAllMastered === true
+                      ? "✓ 已是已掌握，无需更改"
+                      : `✓ 更新为「已掌握」${masteryTargetLabel ? `（${masteryTargetLabel}）` : ""}`}
                   </button>
                   <button
                     onClick={() => onSetMastery("partial")}
-                    disabled={busy || currentMastery === "partial"}
-                    className="rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white active:bg-amber-600 disabled:opacity-50"
+                    disabled={busy || currentMastery === "partial" || currentAllPartial === true}
+                    className="w-full rounded-xl bg-amber-500 py-3 text-sm font-semibold text-white active:bg-amber-600 disabled:opacity-50"
                   >
-                    {currentMastery === "partial" ? "✓ 已是部分掌握" : "标记为部分掌握"}
+                    {currentMastery === "partial" || currentAllPartial === true
+                      ? "✓ 已是部分掌握，无需更改"
+                      : `◐ 更新为「部分掌握」${masteryTargetLabel ? `（${masteryTargetLabel}）` : ""}`}
+                  </button>
+                  <button
+                    onClick={() => onSetMastery("keep")}
+                    className="w-full rounded-xl border border-slate-300 py-3 text-sm font-medium text-slate-600 active:bg-slate-100"
+                  >
+                    保持现状不改变
                   </button>
                 </div>
               )}

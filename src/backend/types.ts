@@ -77,10 +77,10 @@ export interface Backend {
   compareNodes(projectId: string, nodeIds: string[]): Promise<CompareResult>;
   /** 生成/重新生成知识点学习卡（概括+自测题），保存到节点并返回项目 */
   generateStudyCard(projectId: string, nodeId: string): Promise<Project>;
-  /** 保存对比记录 */
+  /** 保存对比记录（含自测题，供回看时再测） */
   saveComparison(
     projectId: string,
-    input: { nodeNames: string[]; text: string }
+    input: { nodeNames: string[]; text: string; questions?: { q: string; a: string }[] }
   ): Promise<Project>;
   /** 删除对比记录 */
   deleteComparison(projectId: string, comparisonId: string): Promise<Project>;

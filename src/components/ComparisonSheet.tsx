@@ -1,22 +1,36 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { Mastery } from "../types";
+import StudyQuizSheet from "./StudyQuizSheet";
 
 export default function ComparisonSheet({
   nodeNames,
   text,
+  questions,
   mode,
   busy,
   onClose,
   onSave,
   onDelete,
+  onSetMasteryBoth,
+  currentAllMastered,
+  currentAllPartial,
 }: {
   nodeNames: string[];
   text: string;
+  /** 对比自测题（新对比必有；旧记录可能没有） */
+  questions?: { q: string; a: string }[];
   mode: "new" | "view";
   busy?: boolean;
   onClose: () => void;
   onSave?: () => void;
   onDelete?: () => void;
+  /** 自测完成后由用户选择是否更新掌握度（作用于对比的全部知识点） */
+  onSetMasteryBoth?: (m: Mastery | "keep") => void;
+  currentAllMastered?: boolean;
+  currentAllPartial?: boolean;
 }) {
+  const [showQuiz, setShowQuiz] = useState(false);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -68,6 +82,15 @@ export default function ComparisonSheet({
         </div>
 
         <div className="space-y-2 px-5 pt-4">
+          {questions && questions.length > 0 && onSetMasteryBoth && (
+            <button
+              onClick={() => setShowQuiz(true)}
+              disabled={busy}
+              className="w-full rounded-xl bg-slate-900 py-3 text-sm font-semibold text-white active:bg-slate-700 disabled:opacity-50"
+            >
+              🃏 用这份对比自测（{questions.length} 题）→ 决定掌握度
+            </button>
+          )}
           {mode === "new" && onSave && (
             <button
               onClick={onSave}
@@ -87,6 +110,23 @@ export default function ComparisonSheet({
             </button>
           )}
         </div>
+
+        {/* 对比自测卡片流 */}
+        {showQuiz && questions && (
+          <StudyQuizSheet
+            nodeName={`对比 · ${nodeNames.join(" × ")}`}
+            card={{ summary: "", questions, generatedAt: 0 }}
+            busy={Boolean(busy)}
+            onClose={() => setShowQuiz(false)}
+            onFinish={() => {
+              /* 结果在完成页由用户选择 */
+            }}
+            onSetMastery={(m) => onSetMasteryBoth?.(m)}
+            masteryTargetLabel={`这两个知识点`}
+            currentAllMastered={currentAllMastered}
+            currentAllPartial={currentAllPartial}
+          />
+        )}
       </div>
     </div>
   );

@@ -85,7 +85,11 @@ export default function ProjectDetail({ id }: { id: string }) {
   const [importOpen, setImportOpen] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [comparison, setComparison] = useState<{ nodeNames: string[]; text: string } | null>(null);
+  const [comparison, setComparison] = useState<{
+    nodeNames: string[];
+    text: string;
+    questions: { q: string; a: string }[];
+  } | null>(null);
   const [compsOpen, setCompsOpen] = useState(false);
   const [viewComp, setViewComp] = useState<Comparison | null>(null);
   const [isMock, setIsMock] = useState(false);
@@ -207,7 +211,7 @@ export default function ProjectDetail({ id }: { id: string }) {
       const nodeNames = selectedIds
         .map((nid) => project?.nodes.find((n) => n.id === nid)?.name || "")
         .filter(Boolean);
-      setComparison({ nodeNames, text: result.text });
+      setComparison({ nodeNames, text: result.text, questions: result.questions || [] });
       setCompareMode(false);
       setSelectedIds([]);
     } catch (e) {
@@ -221,7 +225,11 @@ export default function ProjectDetail({ id }: { id: string }) {
     if (!comparison) return;
     setBusy(true);
     try {
-      const p = await saveComparison(id, { nodeNames: comparison.nodeNames, text: comparison.text });
+      const p = await saveComparison(id, {
+        nodeNames: comparison.nodeNames,
+        text: comparison.text,
+        questions: comparison.questions,
+      });
       setProject(p);
       setComparison(null);
       toast("对比已保存", "success");
@@ -230,6 +238,23 @@ export default function ProjectDetail({ id }: { id: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** 对比自测完成后：由用户选择是否更新全部对比知识点的掌握度 */
+  function handleComparisonMastery(m: Mastery | "keep", names: string[]) {
+    if (m === "keep") {
+      toast("已保持现状，未更改掌握程度", "info");
+      return;
+    }
+    const ids = (project?.nodes || [])
+      .filter((n) => names.includes(n.name))
+      .map((n) => n.id);
+    if (!ids.length) return;
+    void run(async () => {
+      let last: Project | undefined;
+      for (const nid of ids) last = await setNodeMastery(id, nid, m);
+      return last!;
+    }, `${ids.length} 个知识点已更新为「${m === "mastered" ? "已掌握" : "部分掌握"}」`);
   }
 
   function handleAddRefNode(ref: PaperRef) {
@@ -661,10 +686,20 @@ export default function ProjectDetail({ id }: { id: string }) {
         <ComparisonSheet
           nodeNames={comparison.nodeNames}
           text={comparison.text}
+          questions={comparison.questions}
           mode="new"
           busy={busy}
           onClose={() => setComparison(null)}
           onSave={handleSaveComparison}
+          onSetMasteryBoth={(m) => handleComparisonMastery(m, comparison.nodeNames)}
+          currentAllMastered={comparison.nodeNames.every(
+            (n) => project.nodes.find((x) => x.name === n)?.mastery === "mastered"
+          )}
+          currentAllPartial={comparison.nodeNames.every(
+            (x) =>
+              project.nodes.find((n) => n.name === x)?.mastery === "partial" ||
+              project.nodes.find((n) => n.name === x)?.mastery === "mastered"
+          )}
         />
       )}
 
@@ -726,6 +761,7 @@ export default function ProjectDetail({ id }: { id: string }) {
         <ComparisonSheet
           nodeNames={viewComp.nodeNames}
           text={viewComp.text}
+          questions={viewComp.questions}
           mode="view"
           busy={busy}
           onClose={() => setViewComp(null)}
@@ -733,6 +769,15 @@ export default function ProjectDetail({ id }: { id: string }) {
             const cid = viewComp.id;
             void run(() => deleteComparison(id, cid), "已删除").then(() => setViewComp(null));
           }}
+          onSetMasteryBoth={(m) => handleComparisonMastery(m, viewComp.nodeNames)}
+          currentAllMastered={viewComp.nodeNames.every(
+            (n) => project.nodes.find((x) => x.name === n)?.mastery === "mastered"
+          )}
+          currentAllPartial={viewComp.nodeNames.every(
+            (x) =>
+              project.nodes.find((n) => n.name === x)?.mastery === "partial" ||
+              project.nodes.find((n) => n.name === x)?.mastery === "mastered"
+          )}
         />
       )}
     </div>

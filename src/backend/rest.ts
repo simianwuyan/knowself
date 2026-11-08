@@ -141,7 +141,7 @@ export function generateStudyCard(projectId: string, nodeId: string) {
 
 export function saveComparison(
   projectId: string,
-  input: { nodeNames: string[]; text: string }
+  input: { nodeNames: string[]; text: string; questions?: { q: string; a: string }[] }
 ) {
   return request<Project>(`/api/projects/${projectId}/comparisons`, {
     method: "POST",

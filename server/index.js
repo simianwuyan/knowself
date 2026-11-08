@@ -271,7 +271,7 @@ app.post("/api/projects/:id/compare", wrap(async (req, res) => {
 app.post("/api/projects/:id/comparisons", wrap(async (req, res) => {
   const project = getProject(req.params.id);
   if (!project) return res.status(404).json({ error: "项目不存在" });
-  const { nodeNames, text } = req.body || {};
+  const { nodeNames, text, questions } = req.body || {};
   if (!Array.isArray(nodeNames) || !text) {
     return res.status(400).json({ error: "参数不完整" });
   }
@@ -280,6 +280,12 @@ app.post("/api/projects/:id/comparisons", wrap(async (req, res) => {
     id: newId(),
     nodeNames,
     text: String(text),
+    questions: Array.isArray(questions)
+      ? questions
+          .filter((q) => q && typeof q.q === "string" && typeof q.a === "string")
+          .slice(0, 5)
+          .map((q) => ({ q: String(q.q).slice(0, 300), a: String(q.a).slice(0, 800) }))
+      : undefined,
     createdAt: Date.now(),
   });
   project.updatedAt = Date.now();

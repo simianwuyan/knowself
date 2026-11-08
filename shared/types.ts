@@ -83,11 +83,15 @@ export interface Comparison {
   id: string;
   nodeNames: string[];
   text: string;
+  /** 对比自测题（测「说得出异同吗」），存在时可进入卡片流自测 */
+  questions?: { q: string; a: string }[];
   createdAt: number;
 }
 
 export interface CompareResult {
   text: string;
+  /** 对比自测题（由 AI 基于对比内容生成） */
+  questions: { q: string; a: string }[];
 }
 
 export interface Project {

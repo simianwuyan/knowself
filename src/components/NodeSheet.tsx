@@ -300,7 +300,10 @@ export default function NodeSheet({
             onFinish={() => {
               /* 结果已在完成页展示 */
             }}
-            onSetMastery={(m) => onMasteryChange(m)}
+            onSetMastery={(m) => {
+              if (m !== "keep") onMasteryChange(m);
+            }}
+            masteryTargetLabel="该知识点"
             currentMastery={node.mastery}
           />
         )}

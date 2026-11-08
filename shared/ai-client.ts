@@ -504,13 +504,26 @@ export async function compareNodesAI(
     ],
     { temperature: 0.5 }
   );
-  // 兼容把结果包成 JSON 返回的模型：{"text": "..."} → 取 text
+  // 期望 {"text": "...", "questions": [...]}；兼容只返回纯文本的模型
   let text = raw.trim();
+  let questions: { q: string; a: string }[] = [];
   try {
     const obj = extractJson(text);
-    if (obj && typeof obj.text === "string" && obj.text.trim()) text = obj.text.trim();
+    if (obj && typeof obj.text === "string" && obj.text.trim()) {
+      text = obj.text.trim();
+      questions = (Array.isArray(obj.questions) ? obj.questions : [])
+        .filter(
+          (q): q is { q: string; a: string } =>
+            Boolean(q) &&
+            typeof (q as { q?: unknown }).q === "string" &&
+            Boolean((q as { q: string }).q.trim()) &&
+            typeof (q as { a?: unknown }).a === "string"
+        )
+        .map((q) => ({ q: q.q.trim().slice(0, 300), a: q.a.trim().slice(0, 800) }))
+        .slice(0, 3);
+    }
   } catch {
-    // 不是 JSON，按纯文本使用
+    // 不是 JSON，按纯文本使用（无自测题）
   }
-  return { text };
+  return { text, questions };
 }
