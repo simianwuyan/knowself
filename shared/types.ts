@@ -57,6 +57,7 @@ export interface PaperMeta {
   venue?: string;
   abstract?: string;
   citations?: number;
+  doi?: string;
   refs: PaperRef[]; // 参考文献题录
   source: "openalex" | "text"; // openalex=链接/标题命中；text=用户粘贴文本
 }

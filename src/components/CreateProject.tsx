@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { PaperMeta, ProjectPaper } from "../types";
 import { backendMode, createProject, generateTree, fetchSettings } from "../api";
 import { detectPaperLookup, fetchPaperMeta } from "../literature";
+import { extractArxivId, fetchArxivFullText } from "../../shared/paper-text";
 import { useToast } from "../toast";
 
 const STATUS_TEXTS = [
@@ -30,6 +31,9 @@ export default function CreateProject() {
   const [paperMeta, setPaperMeta] = useState<PaperMeta | null>(null);
   const [paperError, setPaperError] = useState("");
   const [extraText, setExtraText] = useState("");
+  const [autoText, setAutoText] = useState<string | null>(null);
+  const [autoTextState, setAutoTextState] = useState<"idle" | "loading" | "ok" | "none">("idle");
+  const [manualOpen, setManualOpen] = useState(false);
 
   useEffect(() => {
     fetchSettings()
@@ -70,6 +74,33 @@ export default function CreateProject() {
       const m = await fetchPaperMeta(lookup);
       setPaperMeta(m);
       setPaperPhase("confirm");
+      // 后台自动抓取 arXiv 全文（AI 整理重要流程与摘录原文片段用）
+      const arxivId =
+        lookup.kind === "arxiv"
+          ? lookup.id
+          : m.doi
+            ? extractArxivId(m.doi)
+            : extractArxivId(paperInput);
+      if (arxivId) {
+        setAutoTextState("loading");
+        fetchArxivFullText(arxivId)
+          .then((text) => {
+            if (text) {
+              setAutoText(text);
+              setAutoTextState("ok");
+            } else {
+              setAutoText(null);
+              setAutoTextState("none");
+            }
+          })
+          .catch(() => {
+            setAutoText(null);
+            setAutoTextState("none");
+          });
+      } else {
+        setAutoText(null);
+        setAutoTextState("none");
+      }
     } catch (e) {
       setPaperError(e instanceof Error ? e.message : "查询失败");
       setPaperPhase("input");
@@ -98,7 +129,7 @@ export default function CreateProject() {
               year: paperMeta.year,
               venue: paperMeta.venue,
               abstract: paperMeta.abstract,
-              extraText: extraText.trim() || undefined,
+              extraText: extraText.trim() || autoText || undefined,
               refs: paperMeta.refs,
               source: paperMeta.source,
             }
@@ -230,19 +261,62 @@ export default function CreateProject() {
             </div>
 
             {paperPhase === "confirm" && (
-              <div className="rounded-2xl bg-white p-4 shadow-sm">
-                <label className="block text-sm font-medium">
-                  正文片段（强烈建议，用于摘录原文对应片段）
-                </label>
-                <textarea
-                  value={extraText}
-                  onChange={(e) => setExtraText(e.target.value)}
-                  rows={5}
-                  maxLength={20000}
-                  placeholder="粘贴论文的引言、方法部分等（只有摘要时，AI 只能摘录摘要中的句子）"
-                  className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-indigo-400 focus:bg-white"
-                />
-              </div>
+              <>
+                {/* AI 自动整理论文内容 */}
+                <div
+                  className={`rounded-xl p-3 text-xs leading-relaxed ${
+                    autoTextState === "ok"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : autoTextState === "loading"
+                        ? "bg-sky-50 text-sky-700"
+                        : "bg-slate-50 text-slate-500"
+                  }`}
+                >
+                  {autoTextState === "loading" && "🔄 正在自动获取论文全文（arXiv），AI 将据此整理重要流程部分…"}
+                  {autoTextState === "ok" && "✓ 已自动获取论文全文，AI 将整理出核心流程、公式与实验部分，并逐字摘录原文片段——无需你手动输入"}
+                  {autoTextState === "none" && "未找到在线全文（部分老论文无 HTML 版），将基于摘要生成；也可在下方手动补充论文内容"}
+                </div>
+
+                <details className="rounded-xl bg-slate-50 p-3" open={manualOpen}>
+                  <summary
+                    className="cursor-pointer text-xs font-medium text-slate-500"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setManualOpen((v) => !v);
+                    }}
+                  >
+                    手动补充论文内容（可选，一般无需填写）
+                  </summary>
+                  <textarea
+                    value={extraText}
+                    onChange={(e) => setExtraText(e.target.value)}
+                    rows={4}
+                    maxLength={20000}
+                    placeholder="自动获取失败或想聚焦特定章节时，再粘贴论文对应部分"
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-indigo-400"
+                  />
+                </details>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setPaperPhase("input");
+                      setPaperMeta(null);
+                      setAutoText(null);
+                      setAutoTextState("idle");
+                    }}
+                    className="rounded-xl border border-slate-300 py-3 text-sm font-medium text-slate-700 active:bg-slate-100"
+                  >
+                    上一步
+                  </button>
+                  <button
+                    onClick={submit}
+                    className="rounded-xl bg-indigo-600 py-3 text-sm font-semibold text-white active:bg-indigo-700"
+                  >
+                    AI 生成论文学习路线
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}

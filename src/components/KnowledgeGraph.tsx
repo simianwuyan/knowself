@@ -22,6 +22,16 @@ const MASTERY_STYLE: Record<string, { fill: string; stroke: string; label: strin
   unknown: { fill: "#f1f5f9", stroke: "#94a3b8", label: "未学" },
 };
 
+/** 核心类型节点用专属描边色：公式紫、论文蓝，图谱中一眼可辨 */
+const KIND_STROKE: Record<string, string> = {
+  formula: "#7c3aed",
+  paper: "#2563eb",
+};
+
+function strokeFor(node: KnowledgeNode): string {
+  return KIND_STROKE[node.kind || ""] || MASTERY_STYLE[node.mastery]?.stroke || "#94a3b8";
+}
+
 function trunc(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
@@ -166,6 +176,8 @@ export default function KnowledgeGraph({
             })}
             {positioned.map((p) => {
               const st = MASTERY_STYLE[p.node.mastery] || MASTERY_STYLE.unknown;
+              const stroke = strokeFor(p.node);
+              const isFormula = p.node.kind === "formula";
               return (
                 <g
                   key={p.node.id}
@@ -178,9 +190,17 @@ export default function KnowledgeGraph({
                     height={NODE_H}
                     rx="10"
                     fill={st.fill}
-                    stroke={st.stroke}
-                    strokeWidth={p.node.importance === "core" ? 2 : 1.2}
+                    stroke={stroke}
+                    strokeWidth={isFormula ? 2.6 : p.node.importance === "core" ? 2 : 1.2}
                   />
+                  {isFormula && (
+                    <circle cx={NODE_W - 9} cy={9} r="7" fill="#7c3aed" />
+                  )}
+                  {isFormula && (
+                    <text x={NODE_W - 9} y={12.5} fontSize="9" fill="#ffffff" textAnchor="middle" fontWeight="bold">
+                      ∑
+                    </text>
+                  )}
                   <text x="8" y="17" fontSize="10">
                     {KIND_ICON[p.node.kind || "concept"]}
                   </text>
@@ -223,6 +243,20 @@ export default function KnowledgeGraph({
             {v.label}
           </span>
         ))}
+        <span className="flex items-center gap-1">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-[3px]"
+            style={{ border: "2px solid #7c3aed" }}
+          />
+          核心公式
+        </span>
+        <span className="flex items-center gap-1">
+          <span
+            className="inline-block h-2.5 w-2.5 rounded-[3px]"
+            style={{ border: "2px solid #2563eb" }}
+          />
+          论文/引文
+        </span>
         <span className="ml-auto">🧩概念 🧠模型 ∑公式 📄论文 🛠工具 · 单指拖动平移</span>
       </div>
     </div>

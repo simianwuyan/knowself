@@ -44,6 +44,7 @@ interface OaWork {
   publication_year?: number;
   primary_location?: { source?: { display_name?: string | null } | null };
   cited_by_count?: number;
+  doi?: string | null;
   abstract_inverted_index?: Record<string, number[]> | null;
   referenced_works?: string[] | null;
 }
@@ -86,6 +87,7 @@ export async function fetchPaperMeta(lookup: PaperLookup): Promise<PaperMeta> {
     venue: work.primary_location?.source?.display_name || undefined,
     citations: work.cited_by_count,
     abstract: rebuildAbstract(work.abstract_inverted_index),
+    doi: work.doi || undefined,
     refs: [],
     source: "openalex",
   };
