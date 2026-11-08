@@ -1,0 +1,14 @@
+// 类型统一定义在 shared/types.ts（前后端共享），此处转发保持旧导入路径可用
+export type {
+  Mastery,
+  Importance,
+  ResourceType,
+  Resource,
+  KnowledgeNode,
+  Project,
+  ProjectSummary,
+  SettingsView,
+  AISettings,
+  TreeParams,
+  TreeResult,
+} from "../shared/types";

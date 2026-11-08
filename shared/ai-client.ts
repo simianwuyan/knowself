@@ -1,0 +1,309 @@
+// AI 调用核心逻辑：server（Node）与浏览器本地模式共用
+// 只依赖 fetch（Node 18+ 与浏览器均内置），设置与 mock 判断由调用方决定
+import type {
+  AISettings,
+  Importance,
+  KnowledgeNode,
+  NodeKind,
+  Project,
+  Resource,
+  ResourceType,
+  TreeParams,
+  TreeResult,
+} from "./types.ts";
+import {
+  systemPromptForTree,
+  userPromptForTree,
+  systemPromptForExpand,
+  userPromptForExpand,
+  systemPromptForResources,
+  userPromptForResources,
+} from "./prompts.ts";
+import { mockTree, mockExpand, mockResources, mockTest } from "./mock.ts";
+
+const TIMEOUT_MS = 120_000;
+
+export function isMockSettings(s: AISettings, useMock?: boolean): boolean {
+  if (useMock) return true;
+  return !s.apiKey || !s.baseUrl;
+}
+
+function normalizeBaseUrl(url: string): string {
+  let u = String(url || "").trim();
+  if (!u) return "";
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  u = u.replace(/\/+$/, "");
+  if (u.endsWith("/chat/completions")) return u;
+  return `${u}/chat/completions`;
+}
+
+interface ChatOpts {
+  temperature?: number;
+  extraBody?: Record<string, unknown>;
+  timeoutMs?: number;
+}
+
+async function rawChat(
+  settings: AISettings,
+  messages: { role: string; content: string }[],
+  { temperature = 0.4, extraBody, timeoutMs = TIMEOUT_MS }: ChatOpts = {}
+): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(normalizeBaseUrl(settings.baseUrl), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${settings.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: settings.model || "gpt-4o-mini",
+        messages,
+        temperature,
+        ...extraBody,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`AI 接口返回 ${res.status}：${text.slice(0, 300)}`);
+    }
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      throw new Error("AI 返回内容为空");
+    }
+    return content;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error(`AI 请求超时（${Math.round(timeoutMs / 1000)} 秒）`);
+    }
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`AI 请求超时（${Math.round(timeoutMs / 1000)} 秒）`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 从 AI 回复中提取 JSON：剥代码围栏、截取首尾大括号
+export function extractJson(text: string): Record<string, unknown> {
+  let t = String(text).trim();
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("回复中未找到 JSON 对象");
+  }
+  return JSON.parse(t.slice(start, end + 1));
+}
+
+async function chatJson(
+  settings: AISettings,
+  system: string,
+  user: string,
+  { temperature = 0.4 }: { temperature?: number } = {}
+): Promise<Record<string, unknown>> {
+  const messages = [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
+  // 优先要求 json_object 输出（不兼容的服务端可能报错，失败则降级重试）
+  let content: string;
+  try {
+    content = await rawChat(settings, messages, {
+      temperature,
+      extraBody: { response_format: { type: "json_object" } },
+    });
+  } catch {
+    content = await rawChat(settings, messages, { temperature });
+  }
+  try {
+    return extractJson(content);
+  } catch (err) {
+    // 带错误信息重试一次
+    const retryMessages = [
+      ...messages,
+      { role: "assistant", content },
+      {
+        role: "user",
+        content: `你的输出无法被 JSON.parse 解析（${err instanceof Error ? err.message : "格式错误"}）。请重新输出，只输出一个合法的 JSON 对象，不要任何其他文字。`,
+      },
+    ];
+    const retry = await rawChat(settings, retryMessages, { temperature: 0.2 });
+    return extractJson(retry);
+  }
+}
+
+// ---------- 校验/规范化 ----------
+
+function importanceOk(v: unknown): v is Importance {
+  return v === "core" || v === "recommended" || v === "extension";
+}
+
+const RESOURCE_TYPES: ResourceType[] = ["book", "course", "paper", "tutorial"];
+const NODE_KINDS: NodeKind[] = ["concept", "model", "formula", "paper", "tool"];
+
+function kindOk(v: unknown): NodeKind | undefined {
+  return NODE_KINDS.includes(v as NodeKind) ? (v as NodeKind) : undefined;
+}
+
+/** 细粒度学时：按 0.5 小时取整，最低 0.5 */
+function cleanHours(v: unknown, fallback: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(50, Math.max(0.5, Math.round(n * 2) / 2));
+}
+
+export function cleanResources(list: unknown): Resource[] {
+  return Array.isArray(list)
+    ? list
+        .filter(
+          (r): r is { title: string; type?: string; note?: string } =>
+            Boolean(r) && typeof (r as { title?: unknown }).title === "string" &&
+            Boolean((r as { title?: string }).title?.trim())
+        )
+        .map((r) => ({
+          title: r.title.trim(),
+          type: RESOURCE_TYPES.includes(r.type as ResourceType)
+            ? (r.type as ResourceType)
+            : "book",
+          note: typeof r.note === "string" ? r.note.trim() : "",
+        }))
+    : [];
+}
+
+export function cleanPrereqs(list: unknown, validNames: Set<string>): string[] {
+  return Array.isArray(list)
+    ? list
+        .filter(
+          (p): p is string =>
+            typeof p === "string" && validNames.has(p.trim())
+        )
+        .map((p) => p.trim())
+    : [];
+}
+
+export function normalizeTree(json: Record<string, unknown>, params: TreeParams): TreeResult {
+  const nodes = Array.isArray(json.nodes) ? json.nodes : [];
+  if (nodes.length < 5) throw new Error("AI 生成的知识节点过少，请重试");
+  const names = new Set(
+    nodes
+      .map((n) => (n && typeof (n as { name?: unknown }).name === "string" ? ((n as { name: string }).name || "").trim() : ""))
+      .filter(Boolean)
+  );
+  const cleaned = nodes
+    .filter(
+      (n): n is Record<string, unknown> =>
+        Boolean(n) && typeof (n as { name?: unknown }).name === "string" && Boolean((n as { name: string }).name.trim())
+    )
+    .map((n) => ({
+      name: (n.name as string).trim(),
+      description: typeof n.description === "string" ? (n.description as string).trim() : "",
+      kind: kindOk(n.kind),
+      importance: importanceOk(n.importance) ? n.importance : ("recommended" as Importance),
+      prereqs: cleanPrereqs(n.prereqs, names),
+      estHours: cleanHours(n.estHours, 1.5),
+      resources: cleanResources(n.resources),
+    }));
+  return {
+    title:
+      typeof json.title === "string" && json.title.trim()
+        ? json.title.trim()
+        : params.direction,
+    summary: typeof json.summary === "string" ? json.summary.trim() : "",
+    nodes: cleaned,
+  };
+}
+
+// ---------- 对外接口 ----------
+
+export async function generateTreeAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  params: TreeParams
+): Promise<TreeResult> {
+  if (isMockSettings(settings, useMock)) return mockTree(params);
+  const json = await chatJson(
+    settings,
+    systemPromptForTree(),
+    userPromptForTree(params),
+    { temperature: 0.5 }
+  );
+  return normalizeTree(json, params);
+}
+
+export async function expandNodeAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  node: KnowledgeNode,
+  project: Project
+): Promise<{ children: Omit<KnowledgeNode, "id" | "mastery">[] }> {
+  if (isMockSettings(settings, useMock)) return mockExpand({ node });
+  const json = await chatJson(
+    settings,
+    systemPromptForExpand(),
+    userPromptForExpand({ node, project }),
+    { temperature: 0.4 }
+  );
+  const children = Array.isArray(json.children) ? json.children : [];
+  if (!children.length) throw new Error("AI 未返回子知识点，请重试");
+  const childNames = new Set(
+    children
+      .map((c) => (c && typeof (c as { name?: unknown }).name === "string" ? (c as { name: string }).name.trim() : ""))
+      .filter(Boolean)
+  );
+  return {
+    children: children
+      .filter(
+        (c): c is Record<string, unknown> =>
+          Boolean(c) && typeof (c as { name?: unknown }).name === "string" && Boolean((c as { name: string }).name.trim())
+      )
+      .map((c) => ({
+        name: (c.name as string).trim(),
+        description: typeof c.description === "string" ? (c.description as string).trim() : "",
+        kind: kindOk(c.kind),
+        importance: importanceOk(c.importance) ? c.importance : ("recommended" as Importance),
+        prereqs: cleanPrereqs(c.prereqs, childNames),
+        estHours: cleanHours(c.estHours, 1),
+        resources: cleanResources(c.resources),
+      })),
+  };
+}
+
+export async function recommendResourcesAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  node: KnowledgeNode,
+  project: Project
+): Promise<{ resources: Resource[] }> {
+  if (isMockSettings(settings, useMock)) return mockResources({ node });
+  const json = await chatJson(
+    settings,
+    systemPromptForResources(),
+    userPromptForResources({ node, project }),
+    { temperature: 0.6 }
+  );
+  const resources = Array.isArray(json.resources) ? json.resources : [];
+  if (!resources.length) throw new Error("AI 未返回资料推荐，请重试");
+  return { resources: cleanResources(resources) };
+}
+
+export async function testConnectionAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  overrides: Partial<AISettings> = {}
+): Promise<{ reply: string; ms: number; model?: string }> {
+  const s: AISettings = { ...settings, ...overrides };
+  if (isMockSettings(s, useMock)) return mockTest();
+  const started = Date.now();
+  const reply = await rawChat(
+    s,
+    [{ role: "user", content: "请只回复两个字母：OK" }],
+    { temperature: 0, extraBody: { max_tokens: 10 }, timeoutMs: 30_000 }
+  );
+  return { reply: reply.trim(), ms: Date.now() - started, model: s.model };
+}
