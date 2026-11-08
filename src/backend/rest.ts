@@ -1,5 +1,13 @@
 // 服务器模式的 REST 客户端（调用本机 Express 后端）
-import type { CompareResult, PaperMeta, Project, ProjectSummary, Resource, SettingsView } from "../types";
+import type {
+  CompareResult,
+  PaperMeta,
+  Project,
+  ProjectPaper,
+  ProjectSummary,
+  Resource,
+  SettingsView,
+} from "../types";
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -52,6 +60,7 @@ export function createProject(input: {
   direction: string;
   background?: string;
   goal?: string;
+  paper?: ProjectPaper;
 }) {
   return request<Project>("/api/projects", {
     method: "POST",

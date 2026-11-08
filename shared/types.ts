@@ -24,11 +24,26 @@ export interface KnowledgeNode {
   mastery: Mastery;
   fromPaper?: string; // 来源论文标题（从论文导入的知识点）
   refs?: PaperRef[]; // 参考文献题录（仅 paper 节点）
+  /** 论文原文中与该知识点直接对应的片段（逐字摘录，可能为空） */
+  excerpt?: string;
 }
 
 export interface PaperRef {
   title: string;
   year?: number;
+}
+
+/** 论文精读计划的来源论文（题录 + 素材） */
+export interface ProjectPaper {
+  title: string;
+  authors: string[];
+  year?: number;
+  venue?: string;
+  abstract?: string;
+  /** 用户粘贴的正文片段（用于生成 excerpt） */
+  extraText?: string;
+  refs: PaperRef[];
+  source: "openalex" | "text";
 }
 
 export interface PaperMeta {
@@ -70,6 +85,8 @@ export interface Project {
   summary: string;
   nodes: KnowledgeNode[];
   comparisons?: Comparison[];
+  /** 论文精读计划的来源论文（存在时 generate 走论文计划 prompt） */
+  paper?: ProjectPaper;
   createdAt: number;
   updatedAt: number;
 }
@@ -102,6 +119,14 @@ export interface AISettings {
 }
 
 export interface TreeParams {
+  direction: string;
+  background?: string;
+  goal?: string;
+}
+
+/** 论文精读计划的生成参数 */
+export interface PaperPlanParams {
+  meta: ProjectPaper;
   direction: string;
   background?: string;
   goal?: string;

@@ -118,6 +118,24 @@ export default function SettingsPage() {
     }
   }
 
+  async function onClearKey() {
+    if (
+      !window.confirm(
+        "将立即从本机彻底清除 API Key（学习计划数据不受影响），下次使用需重新填写。确认清除？"
+      )
+    )
+      return;
+    try {
+      const s = await saveSettings({ apiKey: "" });
+      setInfo(s);
+      setApiKey("");
+      setPin("");
+      toast("API Key 已彻底清除。建议定期清理，保持用完即清的习惯。", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "清除失败", "error");
+    }
+  }
+
   const isMockNow = info?.isMock ?? false;
 
   return (
@@ -306,6 +324,18 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {mode === "local" && info?.hasKey && (
+          <button
+            onClick={onClearKey}
+            className="w-full rounded-2xl border-2 border-rose-200 bg-rose-50/60 p-4 text-left shadow-sm active:bg-rose-100"
+          >
+            <span className="block text-sm font-bold text-rose-700">🗑 彻底清除 API Key</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-rose-500">
+              立即删除本机保存的 Key（学习数据不受影响）。建议学习结束、更换设备或使用公共网络后及时清除。
+            </span>
+          </button>
+        )}
+
         <div className="rounded-2xl bg-white p-4 text-xs leading-relaxed text-slate-500 shadow-sm">
           <h2 className="mb-2 text-sm font-bold text-slate-700">说明</h2>
           {mode === "server" ? (
@@ -317,9 +347,9 @@ export default function SettingsPage() {
             </p>
           ) : (
             <p>
-              · API Key 只保存在本机浏览器，请勿在公共设备上保存
+              · API Key 加密保存在本机浏览器（解锁码保护），请勿在公共设备上保存
               <br />
-              · 学习计划数据保存在本机浏览器，可用「数据备份」迁移到其他设备
+              · <b>建议用完即清</b>：学习结束或更换环境时，点上方「彻底清除 API Key」
               <br />· 浏览器直连需选择支持跨域的 AI 服务（DeepSeek / Kimi / OpenAI 可直连，智谱 GLM 不行）
             </p>
           )}

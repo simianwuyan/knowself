@@ -2,6 +2,7 @@
 import { getSettings } from "./store.js";
 import {
   generateTreeAI,
+  generatePaperPlanAI,
   expandNodeAI,
   recommendResourcesAI,
   testConnectionAI,
@@ -17,8 +18,17 @@ function current() {
   };
 }
 
+/** 带论文元数据时走论文精读计划 prompt，否则按科研方向生成 */
 export function generateTree(params) {
   const { settings, useMock } = current();
+  if (params.paper) {
+    return generatePaperPlanAI(settings, useMock, {
+      meta: params.paper,
+      direction: params.direction,
+      background: params.background,
+      goal: params.goal,
+    });
+  }
   return generateTreeAI(settings, useMock, params);
 }
 

@@ -15,6 +15,7 @@ export type {
   PaperRef,
   PaperMeta,
   PaperAnalysis,
+  ProjectPaper,
   Comparison,
   CompareResult,
 } from "../shared/types";

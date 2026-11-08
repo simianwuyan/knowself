@@ -82,7 +82,7 @@ app.post("/api/settings/test", wrap(async (req, res) => {
 app.get("/api/projects", (req, res) => ok(res, listProjects()));
 
 app.post("/api/projects", wrap(async (req, res) => {
-  const { direction, background = "", goal = "" } = req.body || {};
+  const { direction, background = "", goal = "", paper } = req.body || {};
   if (!direction || !direction.trim()) {
     return res.status(400).json({ error: "请填写科研方向" });
   }
@@ -95,6 +95,25 @@ app.post("/api/projects", wrap(async (req, res) => {
     goal: String(goal || "").trim(),
     summary: "",
     nodes: [],
+    // 论文精读计划：保存来源论文（generate 时走论文 prompt）
+    paper:
+      paper && paper.title
+        ? {
+            title: String(paper.title).slice(0, 300),
+            authors: Array.isArray(paper.authors) ? paper.authors.map(String).slice(0, 10) : [],
+            year: paper.year,
+            venue: paper.venue,
+            abstract: paper.abstract ? String(paper.abstract).slice(0, 20000) : undefined,
+            extraText: paper.extraText ? String(paper.extraText).slice(0, 20000) : undefined,
+            refs: Array.isArray(paper.refs)
+              ? paper.refs
+                  .filter((r) => r && typeof r.title === "string")
+                  .slice(0, 50)
+                  .map((r) => ({ title: String(r.title).slice(0, 300), year: r.year }))
+              : [],
+            source: paper.source === "text" ? "text" : "openalex",
+          }
+        : undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -131,6 +150,7 @@ app.post("/api/projects/:id/generate", wrap(async (req, res) => {
     direction: project.direction,
     background: project.background,
     goal: project.goal,
+    paper: project.paper,
   });
   // 重新生成时按名称继承旧的掌握状态
   const oldMastery = new Map(

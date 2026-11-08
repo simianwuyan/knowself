@@ -1,5 +1,13 @@
 // 后端接口抽象：同一套函数签名，两种实现（服务器模式 / 本地模式）
-import type { CompareResult, PaperMeta, Project, ProjectSummary, Resource, SettingsView } from "../types";
+import type {
+  CompareResult,
+  PaperMeta,
+  Project,
+  ProjectPaper,
+  ProjectSummary,
+  Resource,
+  SettingsView,
+} from "../types";
 
 export type KeyLockState = "none" | "unlocked" | "locked";
 
@@ -37,6 +45,8 @@ export interface Backend {
     direction: string;
     background?: string;
     goal?: string;
+    /** 论文精读计划：创建时携带来源论文，generate 走论文 prompt */
+    paper?: ProjectPaper;
   }): Promise<Project>;
   generateTree(id: string): Promise<Project>;
   renameProject(id: string, title: string): Promise<Project>;

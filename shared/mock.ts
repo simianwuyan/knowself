@@ -5,6 +5,7 @@ import type {
   KnowledgeNode,
   PaperAnalysis,
   PaperMeta,
+  PaperPlanParams,
   TreeParams,
   TreeResult,
 } from "./types.ts";
@@ -98,8 +99,30 @@ export async function mockTest(): Promise<{ reply: string; ms: number; model?: s
   return { reply: "Mock 连接正常", ms: Date.now() - started, model: "mock" };
 }
 
-export async function mockAnalyzePaper({ meta }: { meta: PaperMeta }): Promise<PaperAnalysis> {
+/** 论文精读计划 Mock：示例节点带 excerpt（取自摘要的示意句子） */
+export async function mockPaperPlan(params: PaperPlanParams): Promise<TreeResult> {
   await sleep(1500);
+  const meta = params.meta;
+  const title = meta.title || "Mock 论文";
+  const absSentence = (meta.abstract || "（Mock）这是论文摘要中的示意句子，用于演示原文对应功能。").slice(0, 120);
+  const ref1 = meta.refs[0]?.title || "Mock 引文A：领域奠基工作";
+  const ref2 = meta.refs[1]?.title || "Mock 引文B：方法前置论文";
+  return {
+    title: title.length > 10 ? title.slice(0, 10) : title,
+    summary: `（Mock 提取）这是以《${title}》为中心的论文精读路线演示。连接真实 AI 后，将基于论文摘要与正文逐节拆解方法链条，并为每个知识点摘录原文对应片段。`,
+    nodes: [
+      { name: "论文背景与动机", description: "论文要解决什么问题、为什么重要（Mock 示例）", kind: "concept", importance: "core", prereqs: [], estHours: 1, resources: [], excerpt: absSentence },
+      { name: "方法总体框架", description: "论文方法的模块划分与数据流（Mock 示例）", kind: "model", importance: "core", prereqs: ["论文背景与动机"], estHours: 2, resources: [], excerpt: absSentence },
+      { name: "关键公式推导", description: "论文中最重要的公式及其推导主线（Mock 示例）", kind: "formula", importance: "core", prereqs: ["方法总体框架"], estHours: 1.5, resources: [], excerpt: absSentence },
+      { name: "实验设计与指标", description: "实验怎么验证主张、看哪些指标（Mock 示例）", kind: "concept", importance: "recommended", prereqs: ["关键公式推导"], estHours: 1, resources: [], excerpt: absSentence },
+      { name: ref1, description: "（Mock）论文方法的直接基础，必读引文", kind: "paper", importance: "recommended", prereqs: [], estHours: 3, resources: [], excerpt: "" },
+      { name: ref2, description: "（Mock）前置论文与对比 baseline", kind: "paper", importance: "recommended", prereqs: [], estHours: 3, resources: [], excerpt: "" },
+      { name: title, description: `（Mock）论文本身：读懂上述内容后整篇精读，重点对照实验部分`, kind: "paper", importance: "core", prereqs: ["论文背景与动机", "方法总体框架", "关键公式推导", ref1, ref2], estHours: 4, resources: [] },
+    ],
+  };
+}
+
+export async function mockAnalyzePaper({ meta }: { meta: PaperMeta }): Promise<PaperAnalysis> {  await sleep(1500);
   const title = meta.title || "Mock 论文";
   const refTitle = meta.refs[0]?.title || "Mock 引文A：领域奠基工作";
   const refTitle2 = meta.refs[1]?.title || "Mock 引文B：方法前置论文";

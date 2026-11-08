@@ -78,6 +78,18 @@ export default function NodeSheet({
             <p className="text-sm leading-relaxed text-slate-600">{node.description}</p>
           )}
 
+          {node.excerpt && (
+            <div>
+              <h4 className="text-xs font-semibold text-slate-400">📌 论文对应片段</h4>
+              <blockquote className="mt-2 rounded-xl border-l-4 border-indigo-300 bg-indigo-50/70 p-3 text-sm leading-relaxed text-slate-700">
+                {node.excerpt}
+              </blockquote>
+              {node.fromPaper && (
+                <p className="mt-1 text-[11px] text-slate-400">摘自：《{node.fromPaper}》</p>
+              )}
+            </div>
+          )}
+
           <div>
             <h4 className="text-xs font-semibold text-slate-400">掌握状态</h4>
             <div className="mt-2">

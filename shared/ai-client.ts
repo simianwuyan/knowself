@@ -8,6 +8,7 @@ import type {
   NodeKind,
   PaperAnalysis,
   PaperMeta,
+  PaperPlanParams,
   Project,
   Resource,
   ResourceType,
@@ -23,6 +24,8 @@ import {
   userPromptForResources,
   systemPromptForPaperAnalysis,
   userPromptForPaperAnalysis,
+  systemPromptForPaperPlan,
+  userPromptForPaperPlan,
   systemPromptForCompare,
   userPromptForCompare,
 } from "./prompts.ts";
@@ -33,6 +36,7 @@ import {
   mockTest,
   mockAnalyzePaper,
   mockCompare,
+  mockPaperPlan,
 } from "./mock.ts";
 
 const TIMEOUT_MS = 120_000;
@@ -172,6 +176,13 @@ function cleanHours(v: unknown, fallback: number): number {
   return Math.min(50, Math.max(0.5, Math.round(n * 2) / 2));
 }
 
+/** 论文原文片段：截断至 800 字 */
+function cleanExcerpt(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return undefined;
+  const t = v.trim().slice(0, 800);
+  return t || undefined;
+}
+
 export function cleanResources(list: unknown): Resource[] {
   return Array.isArray(list)
     ? list
@@ -222,6 +233,7 @@ export function normalizeTree(json: Record<string, unknown>, params: TreeParams)
       prereqs: cleanPrereqs(n.prereqs, names),
       estHours: cleanHours(n.estHours, 1.5),
       resources: cleanResources(n.resources),
+      excerpt: cleanExcerpt(n.excerpt),
     }));
   return {
     title:
@@ -248,6 +260,22 @@ export async function generateTreeAI(
     { temperature: 0.5 }
   );
   return normalizeTree(json, params);
+}
+
+/** 论文精读计划：以一篇论文为中心生成完整学习路线（含原文对应片段） */
+export async function generatePaperPlanAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  params: PaperPlanParams
+): Promise<TreeResult> {
+  if (isMockSettings(settings, useMock)) return mockPaperPlan(params);
+  const json = await chatJson(
+    settings,
+    systemPromptForPaperPlan(),
+    userPromptForPaperPlan(params),
+    { temperature: 0.4 }
+  );
+  return normalizeTree(json, { direction: params.meta.title });
 }
 
 export async function expandNodeAI(
@@ -343,6 +371,7 @@ function cleanNodeList(
       prereqs: cleanPrereqs(n.prereqs, validNames),
       estHours: cleanHours(n.estHours, defaultHours),
       resources: cleanResources(n.resources),
+      excerpt: cleanExcerpt(n.excerpt),
       ...(fromPaper ? { fromPaper } : {}),
     }));
 }

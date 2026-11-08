@@ -12,6 +12,7 @@ import type {
 import {
   expandNodeAI,
   generateTreeAI,
+  generatePaperPlanAI,
   recommendResourcesAI,
   testConnectionAI,
   analyzePaperAI,
@@ -219,6 +220,7 @@ export const localBackend: Backend = {
       goal: (input.goal || "").trim(),
       summary: "",
       nodes: [],
+      paper: input.paper,
       createdAt: now,
       updatedAt: now,
     };
@@ -228,11 +230,18 @@ export const localBackend: Backend = {
   async generateTree(id) {
     const project = loadProject(id);
     const { settings, useMock } = settingsWith();
-    const tree = await generateTreeAI(settings, useMock, {
-      direction: project.direction,
-      background: project.background,
-      goal: project.goal,
-    });
+    const tree = project.paper
+      ? await generatePaperPlanAI(settings, useMock, {
+          meta: project.paper,
+          direction: project.direction,
+          background: project.background,
+          goal: project.goal,
+        })
+      : await generateTreeAI(settings, useMock, {
+          direction: project.direction,
+          background: project.background,
+          goal: project.goal,
+        });
     // 重新生成时按名称继承旧的掌握状态
     const oldMastery = new Map(
       (project.nodes || []).map((n) => [normName(n.name), n.mastery])

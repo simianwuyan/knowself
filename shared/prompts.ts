@@ -1,5 +1,5 @@
 // AI 提示词集中管理（server 与浏览器本地模式共用）
-import type { KnowledgeNode, PaperMeta, Project, TreeParams } from "./types.ts";
+import type { KnowledgeNode, PaperMeta, Project, ProjectPaper, TreeParams } from "./types.ts";
 
 export const IMPORTANCE_DESC = `importance 取值三选一：
 - "core"：不掌握就无法读懂该方向论文的地基
@@ -82,7 +82,7 @@ export function systemPromptForPaperAnalysis(): string {
 
 要求：
 1. paperNode：论文本身，name 用论文原标题，description 用两三句话说明这篇论文的贡献、解决什么问题、为什么必读、学到什么程度；importance 一律 "core"；kind 一律 "paper"；estHours 2~6。
-2. nodes：8~20 个读懂该论文所需的具体知识点——论文中用到的概念、模型/方法、关键公式或定理、工具技能。粒度与格式要求同清单生成：每个节点只含一个具体知识点，name 为具体名词（中文），description 一句话说明它在论文中的作用与要学到什么程度，kind 五选一（concept/model/formula/paper/tool），importance 三选一，prereqs 只能引用「本次输出其他节点 name」或「keyRefs 里的引文标题」，构成有向无环图，estHours 0.5~4（支持 0.5）。
+2. nodes：8~20 个读懂该论文所需的具体知识点——论文中用到的概念、模型/方法、关键公式或定理、工具技能。粒度与格式要求同清单生成：每个节点只含一个具体知识点，name 为具体名词（中文），description 一句话说明它在论文中的作用与要学到什么程度，kind 五选一（concept/model/formula/paper/tool），importance 三选一，prereqs 只能引用「本次输出其他节点 name」或「keyRefs 里的引文标题」，构成有向无环图，estHours 0.5~4（支持 0.5）。每个节点尽量给出 excerpt（论文原文对应片段，逐字摘自摘要/正文片段，无对应内容则空字符串）。
 3. keyRefs：从给定「参考文献题录」中挑出 3~6 篇理解该论文必读的引文（优先：被论文方法直接依赖的奠基工作、同方向的经典综述）；每篇 {title, why}，title 必须逐字复制题录中的标题，why 一句话说明它是论文的哪块基础。若未提供参考文献题录，则 keyRefs 返回空数组，宁可缺失也不要编造不存在的论文。
 4. 严禁循环依赖；概念→公式→模型→论文由浅入深。
 5. ${KIND_DESC}
@@ -101,6 +101,35 @@ export function userPromptForPaperAnalysis({ meta, direction, extraText }: { met
 ${extraText ? `\n正文片段（用户粘贴）：\n${extraText.slice(0, 6000)}` : ""}
 参考文献题录（真实引文数据，keyRefs 只能从中选）：
 ${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供，keyRefs 返回空数组）"}`;
+}
+
+export function systemPromptForPaperPlan(): string {
+  return `你是科研论文精读规划专家。用户提供了一篇将要精读的论文（题录、摘要，通常附正文片段），请产出「以读懂这篇论文为中心」的完整学习路线。
+
+要求：
+1. 输出 20~40 个节点，覆盖：论文的问题背景与动机、方法链条的每个模块、关键公式/定理、实验设计与评价指标、结论与局限，以及 3~6 篇必读引文（kind="paper"，只能从给定参考文献题录中选，title 逐字复制）。
+2. 粒度：每个节点只含一个具体知识点（概念/模型/公式/论文/工具），由浅入深构成有向无环图：基础概念 → 公式 → 方法模块 → 论文整体。
+3. **excerpt（重要）**：每个节点给出论文原文中与它直接对应的片段——逐字摘自「摘要」或「正文片段」，2~4 句，放在双引号内不做改写；这是用户对照原文学习的锚点。给定文本中确实没有对应内容时 excerpt 返回空字符串，严禁编造或改写原文。
+4. 每个节点：name（具体名词，中文；论文与引文节点用原标题）、description（一句话：学什么/在论文中的作用/学到什么程度）、kind（五选一）、importance（三选一）、prereqs（只能引用其他节点 name 或引文标题，严禁循环）、estHours（0.5~4，支持 0.5）、resources（0~2）、excerpt。
+5. 论文本身也是节点：kind="paper"、name=论文原标题、prereqs 指向它的核心方法/公式节点与必读引文节点。
+6. ${KIND_DESC}
+7. ${IMPORTANCE_DESC}
+
+只输出一个 JSON 对象，不要输出任何其他文字，格式：
+{"title":"论文简称（10字内）","summary":"两三句话概括这篇论文讲什么、路线怎么安排","nodes":[{"name":"","description":"","kind":"concept","importance":"core","prereqs":[],"estHours":1,"resources":[],"excerpt":""}]}`;
+}
+
+export function userPromptForPaperPlan({ meta, direction, background, goal }: { meta: ProjectPaper; direction: string; background?: string; goal?: string }): string {
+  return `论文标题：${meta.title}
+作者：${meta.authors.join("、") || "（无）"}
+年份/期刊：${[meta.year, meta.venue].filter(Boolean).join(" / ") || "（无）"}
+科研方向：${direction || "（未提供）"}
+读者背景：${background || "（未提供，按零基础/低年级研究生处理）"}
+学习目标：${goal || "（未提供，按「彻底读懂并复现这篇论文」处理）"}
+摘要：${meta.abstract || "（无）"}
+${meta.extraText ? `\n正文片段（excerpt 必须逐字摘自摘要或以下正文）：\n${meta.extraText.slice(0, 8000)}` : "\n（未提供正文，excerpt 只能摘自摘要）"}
+参考文献题录（必读引文只能从中选）：
+${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供）"}`;
 }
 
 export function systemPromptForCompare(): string {

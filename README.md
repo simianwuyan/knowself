@@ -83,6 +83,14 @@ data/           服务器模式运行时数据（gitignore）
 - AI 调用：`shared/ai-client.ts` — OpenAI 兼容 `/chat/completions`，优先 `json_object` 输出，解析失败自动带错误重试一次，120 秒超时；server 与浏览器共用同一实现
 - PWA：`public/sw.js` — 导航 network-first、构建产物 cache-first，离线可打开应用界面
 
+## 安全说明（API Key 保护）
+
+- **本地模式**：Key 用你设置的 4~6 位「解锁码」经 WebCrypto（AES-GCM + PBKDF2，15 万次迭代）**加密后存储**，明文不落盘；每次打开应用需输入解锁码解锁（仅本次会话内存中使用）。忘记解锁码可在锁定页清除后重填。旧版本明文存储的 Key 会提示升级：重新填写并设置解锁码即可。
+- 生产构建注入了 **CSP**（Content-Security-Policy）：禁止页面加载外部脚本，收窄注入窃取 Key 的攻击面。
+- 「导出备份」不含 API Key。
+- **服务器模式**：Key 保存在电脑端 `data/settings.json`，从不下发到浏览器页面。
+- **最强兜底仍是服务商侧**：AI 平台只留少量余额 / 设置限额，怀疑泄露时重置 Key（10 秒生效）。
+
 ## 常见问题
 
 - **本地模式 AI 报「网络请求失败/CORS」**：所选服务商不允许浏览器跨域（如智谱 GLM），改用 DeepSeek / Kimi，或改用服务器模式。

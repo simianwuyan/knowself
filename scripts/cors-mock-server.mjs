@@ -41,7 +41,27 @@ const server = http.createServer((req, res) => {
       /* ignore */
     }
     let content;
-    if (/参考文献题录/.test(userMsg)) {
+    if (/以读懂这篇论文为中心/.test(userMsg)) {
+      // 论文精读计划
+      const title = (userMsg.match(/论文标题：(.+)/) || [])[1]?.trim() || "Mock 论文";
+      const ref1 = (userMsg.match(/^1\. (.+)$/m) || [])[1] || "Mock 引文A：领域奠基工作";
+      const ref2 = (userMsg.match(/^2\. (.+)$/m) || [])[1] || "Mock 引文B：方法前置论文";
+      const abs = (userMsg.match(/摘要：(.+)/) || [])[1]?.trim() || "";
+      const excerpt = abs.slice(0, 100) || "（Mock）摘要示意句子，用于演示原文对应功能。";
+      content = JSON.stringify({
+        title: title.slice(0, 10),
+        summary: `（Mock 提取）以《${title}》为中心的论文精读路线演示，连接真实 AI 后将逐节拆解并摘录原文片段。`,
+        nodes: [
+          { name: "论文背景与动机", description: "论文要解决什么问题（Mock）", kind: "concept", importance: "core", prereqs: [], estHours: 1, resources: [], excerpt },
+          { name: "方法总体框架", description: "方法模块划分与数据流（Mock）", kind: "model", importance: "core", prereqs: ["论文背景与动机"], estHours: 2, resources: [], excerpt },
+          { name: "关键公式推导", description: "最重要公式及推导主线（Mock）", kind: "formula", importance: "core", prereqs: ["方法总体框架"], estHours: 1.5, resources: [], excerpt },
+          { name: "实验设计与指标", description: "实验如何验证主张（Mock）", kind: "concept", importance: "recommended", prereqs: ["关键公式推导"], estHours: 1, resources: [], excerpt },
+          { name: ref1, description: "（Mock）论文方法的直接基础", kind: "paper", importance: "recommended", prereqs: [], estHours: 3, resources: [], excerpt: "" },
+          { name: ref2, description: "（Mock）前置论文与 baseline", kind: "paper", importance: "recommended", prereqs: [], estHours: 3, resources: [], excerpt: "" },
+          { name: title, description: "（Mock）论文本身：整篇精读，重点对照实验部分", kind: "paper", importance: "core", prereqs: ["论文背景与动机", "方法总体框架", "关键公式推导", ref1, ref2], estHours: 4, resources: [], excerpt: "" },
+        ],
+      });
+    } else if (/参考文献题录/.test(userMsg)) {
       // 论文分析
       const title = (userMsg.match(/论文标题：(.+)/) || [])[1]?.trim() || "Mock 论文";
       const ref1 = (userMsg.match(/^1\. (.+)$/m) || [])[1] || "Mock 引文A：领域奠基工作";
