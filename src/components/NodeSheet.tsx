@@ -129,22 +129,40 @@ export default function NodeSheet({
               {node.resources.length === 0 ? (
                 <p className="mt-1.5 text-sm text-slate-400">暂无，可点击下方让 AI 推荐</p>
               ) : (
-                <ul className="mt-2 space-y-2">
-                  {node.resources.map((r, i) => {
-                    const meta = TYPE_META[r.type] || TYPE_META.book;
-                    return (
-                      <li key={i} className="rounded-xl bg-slate-50 p-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>
-                            {meta.icon} {meta.label}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
-                        </div>
-                        {r.note && <p className="mt-1 text-xs leading-relaxed text-slate-500">{r.note}</p>}
-                      </li>
-                    );
-                  })}
-                </ul>
+              <ul className="mt-2 space-y-2">
+                {node.resources.map((r, i) => {
+                  const meta = TYPE_META[r.type] || TYPE_META.book;
+                  const href = r.url || `https://www.bing.com/search?q=${encodeURIComponent(r.title)}`;
+                  return (
+                    <li key={i} className="rounded-xl bg-slate-50 p-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${meta.cls}`}>
+                          {meta.icon} {meta.label}
+                        </span>
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-w-0 flex-1 truncate text-sm font-medium text-indigo-700 underline decoration-indigo-300 underline-offset-2 active:text-indigo-900"
+                        >
+                          {r.title} ↗
+                        </a>
+                        {r.pdfUrl && (
+                          <a
+                            href={r.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="shrink-0 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700"
+                          >
+                            PDF
+                          </a>
+                        )}
+                      </div>
+                      {r.note && <p className="mt-1 text-xs leading-relaxed text-slate-500">{r.note}</p>}
+                    </li>
+                  );
+                })}
+              </ul>
               )}
             </div>
           )}

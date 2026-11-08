@@ -327,7 +327,7 @@ app.post("/api/projects/:id/nodes/:nodeId/resources/add", wrap(async (req, res) 
   if (!project) return res.status(404).json({ error: "项目不存在" });
   const node = project.nodes.find((n) => n.id === req.params.nodeId);
   if (!node) return res.status(404).json({ error: "节点不存在" });
-  const { title, type = "paper", note = "" } = req.body || {};
+  const { title, type = "paper", note = "", url, pdfUrl } = req.body || {};
   if (!title || !title.trim()) return res.status(400).json({ error: "资料标题为空" });
   const existing = new Set((node.resources || []).map((r) => normalizeName(r.title)));
   if (!existing.has(normalizeName(title))) {
@@ -337,6 +337,8 @@ app.post("/api/projects/:id/nodes/:nodeId/resources/add", wrap(async (req, res) 
         title: title.trim(),
         type: ["book", "course", "paper", "tutorial"].includes(type) ? type : "paper",
         note: String(note || "").trim(),
+        url: typeof url === "string" && url.trim() ? url.trim() : undefined,
+        pdfUrl: typeof pdfUrl === "string" && pdfUrl.trim() ? pdfUrl.trim() : undefined,
       },
     ];
   }

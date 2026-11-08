@@ -54,7 +54,10 @@ function exportMarkdown(project: Project) {
       if (n.description) lines.push(`  - ${n.description}`);
       if (n.prereqs.length) lines.push(`  - 前置：${n.prereqs.join("、")}`);
       for (const r of n.resources) {
-        lines.push(`  - 资料《${r.title}》〔${r.type}〕${r.note ? `—— ${r.note}` : ""}`);
+        const link = r.pdfUrl || r.url;
+        lines.push(
+          `  - 资料[${r.type}] 《${r.title}》${link ? `(${link})` : ""}${r.note ? `—— ${r.note}` : ""}`
+        );
       }
     }
     lines.push("");
@@ -605,6 +608,8 @@ export default function ProjectDetail({ id }: { id: string }) {
                 ]
                   .filter(Boolean)
                   .join(" · "),
+                url: p.landingUrl,
+                pdfUrl: p.pdfUrl,
               })
             )
           }

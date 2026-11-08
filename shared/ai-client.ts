@@ -38,6 +38,7 @@ import {
   mockCompare,
   mockPaperPlan,
 } from "./mock.ts";
+import { searchWorks } from "./lit-search.ts";
 
 const TIMEOUT_MS = 120_000;
 
@@ -316,6 +317,38 @@ export async function expandNodeAI(
   };
 }
 
+function bingSearchUrl(title: string): string {
+  return `https://www.bing.com/search?q=${encodeURIComponent(title)}`;
+}
+
+/**
+ * 为 AI 推荐的资料配链接：
+ * - 论文类：OpenAlex/Crossref 按标题检索，配 DOI 原文与开放获取 PDF（失败则 Bing 搜索兜底）
+ * - 其他类型：配 Bing 搜索链接（保证总能打开）
+ */
+async function enrichResources(resources: Resource[]): Promise<Resource[]> {
+  const out: Resource[] = [];
+  for (const r of resources) {
+    try {
+      if (r.type === "paper" && !r.url) {
+        const hits = await searchWorks(r.title, 1);
+        if (hits[0]) {
+          out.push({
+            ...r,
+            url: hits[0].landingUrl || bingSearchUrl(r.title),
+            pdfUrl: hits[0].pdfUrl,
+          });
+          continue;
+        }
+      }
+    } catch {
+      /* 富化失败不影响主结果 */
+    }
+    out.push({ ...r, url: r.url || bingSearchUrl(r.title) });
+  }
+  return out;
+}
+
 export async function recommendResourcesAI(
   settings: AISettings,
   useMock: boolean | undefined,
@@ -331,7 +364,9 @@ export async function recommendResourcesAI(
   );
   const resources = Array.isArray(json.resources) ? json.resources : [];
   if (!resources.length) throw new Error("AI 未返回资料推荐，请重试");
-  return { resources: cleanResources(resources) };
+  const cleaned = cleanResources(resources);
+  // 为每条资料配可点击链接（论文→真实文献链接，其余→搜索页）
+  return { resources: await enrichResources(cleaned) };
 }
 
 export async function testConnectionAI(

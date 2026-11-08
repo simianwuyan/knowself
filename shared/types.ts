@@ -10,6 +10,10 @@ export interface Resource {
   title: string;
   type: ResourceType;
   note?: string;
+  /** 可点击打开的链接（文献原文/搜索页） */
+  url?: string;
+  /** 开放获取 PDF 直链（如有） */
+  pdfUrl?: string;
 }
 
 export interface KnowledgeNode {

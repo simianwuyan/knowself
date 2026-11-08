@@ -85,10 +85,11 @@ export async function mockExpand({ node }: { node: KnowledgeNode }): Promise<{ c
 
 export async function mockResources({ node }: { node: KnowledgeNode }): Promise<{ resources: KnowledgeNode["resources"] }> {
   await sleep(800);
+  const q = encodeURIComponent(node.name || "科研学习");
   return {
     resources: [
-      { title: `《${node.name || "该主题"}》入门教程（Mock）`, type: "tutorial", note: "Mock 演示数据，连接真实 AI 后可获得真实推荐" },
-      { title: `${node.name || "该主题"} 经典教材章节（Mock）`, type: "book", note: "系统学习首选" },
+      { title: `《${node.name || "该主题"}》入门教程（Mock）`, type: "tutorial", note: "Mock 演示数据，连接真实 AI 后可获得真实推荐", url: `https://www.bing.com/search?q=${q}` },
+      { title: `${node.name || "该主题"} 经典教材章节（Mock）`, type: "book", note: "系统学习首选", url: `https://www.bing.com/search?q=${q}` },
     ],
   };
 }
