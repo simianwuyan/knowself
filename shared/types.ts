@@ -16,6 +16,13 @@ export interface Resource {
   pdfUrl?: string;
 }
 
+/** AI 对话消息（知识点/对比的讨论记录） */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  ts: number;
+}
+
 /** 知识点学习卡（按需 AI 生成，存于节点） */
 export interface StudyCard {
   summary: string; // 概括讲解
@@ -39,6 +46,8 @@ export interface KnowledgeNode {
   excerpt?: string;
   /** AI 学习卡：概括 + 自测题（用户点进知识点后按需生成） */
   study?: StudyCard;
+  /** 与 AI 的讨论记录（最新在尾部，存储时裁剪至最近 40 条） */
+  chat?: ChatMessage[];
 }
 
 export interface PaperRef {
@@ -85,6 +94,8 @@ export interface Comparison {
   text: string;
   /** 对比自测题（测「说得出异同吗」），存在时可进入卡片流自测 */
   questions?: { q: string; a: string }[];
+  /** 与 AI 的讨论记录（基于对比内容探讨） */
+  chat?: ChatMessage[];
   createdAt: number;
 }
 

@@ -1,5 +1,6 @@
 // 后端接口抽象：同一套函数签名，两种实现（服务器模式 / 本地模式）
 import type {
+  ChatMessage,
   CompareResult,
   PaperMeta,
   Project,
@@ -83,10 +84,19 @@ export interface Backend {
    * （引文网络与检索在双模式中都由调用端直连学术库完成）
    */
   smartLiterature(projectId: string, nodeId: string, query?: string): Promise<LiteratureGroup>;
+  /** 与 AI 讨论知识点（对话存于节点，裁剪至最近 40 条） */
+  chatWithNode(projectId: string, nodeId: string, message: string): Promise<{ project: Project; reply: string }>;
+  /** 与 AI 讨论已保存的对比（对话存于对比记录） */
+  chatWithComparison(projectId: string, comparisonId: string, message: string): Promise<{ project: Project; reply: string }>;
+  /** 未保存对比的临时讨论（不落库） */
+  chatCompareEphemeral(
+    projectId: string,
+    input: { nodeNames: string[]; compareText: string; history: ChatMessage[]; message: string }
+  ): Promise<{ reply: string }>;
   /** 保存对比记录（含自测题，供回看时再测） */
   saveComparison(
     projectId: string,
-    input: { nodeNames: string[]; text: string; questions?: { q: string; a: string }[] }
+    input: { nodeNames: string[]; text: string; questions?: { q: string; a: string }[]; chat?: ChatMessage[] }
   ): Promise<Project>;
   /** 删除对比记录 */
   deleteComparison(projectId: string, comparisonId: string): Promise<Project>;

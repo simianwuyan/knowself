@@ -132,6 +132,45 @@ ${meta.extraText ? `\n正文片段（excerpt 必须逐字摘自摘要或以下�
 ${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供）"}`;
 }
 
+export function systemPromptForNodeChat(): string {
+  return `你是科研学习辅导专家，正在与一位精读论文的研究者就某个知识点进行一对一讨论。
+
+要求：
+1. 回答紧扣该知识点与论文语境（方向、所属论文、原文片段都会提供），主动引用这些上下文。
+2. 中文回答，150~400 字为宜，除非用户明确要求详细展开；多用具体例子与直觉类比，少空话。
+3. 用户问到论文相关内容时，结合提供的论文信息回答；信息不足时如实说明并给出建议（如建议阅读哪部分）。
+4. 用户问到掌握程度相关话题时，可以建议他用学习卡自测。
+5. 连续对话要保持上下文连贯；如果用户偏离知识点主题，可以温和地把话题拉回，但优先尊重用户的提问。`;
+}
+
+export function userPromptForNodeChat({ node, project, message }: { node: KnowledgeNode; project: Project; message: string }): string {
+  return `【讨论对象】知识节点：${node.name}（类型：${node.kind || "concept"}）
+【节点描述】${node.description || "（无）"}
+${node.excerpt ? `【论文原文片段】${node.excerpt.slice(0, 800)}` : ""}
+${node.study?.summary ? `【已有概括】${node.study.summary.slice(0, 800)}` : ""}
+${project.paper ? `【所属论文】${project.paper.title}${project.paper.abstract ? `——摘要：${project.paper.abstract.slice(0, 600)}` : ""}` : `【科研方向】${project.direction || "（未设置）"}`}
+【用户的新消息】
+${message}`;
+}
+
+export function systemPromptForCompareChat(): string {
+  return `你是科研学习辅导专家，正在与一位研究者讨论「两个/多个知识点的异同对比」。对比讲解全文会提供给你。
+
+要求：
+1. 回答基于对比内容展开（共同点/关键差异/联系依赖/易混点），可引用其中的条目。
+2. 结合知识点的名称与类型上下文，中文回答，150~400 字为宜；具体、直接、多用例子。
+3. 用户想深入某个方面时可以展开，但保持围绕这几个知识点的异同与关系。
+4. 也可以建议下一步动作（如用学习卡自测、阅读某篇前置文献）。`;
+}
+
+export function userPromptForCompareChat({ nodeNames, compareText, message }: { nodeNames: string[]; compareText: string; message: string }): string {
+  return `【讨论对象】知识点：${nodeNames.join(" 与 ")}
+【对比讲解全文】
+${compareText.slice(0, 2000)}
+【用户的新消息】
+${message}`;
+}
+
 export function systemPromptForLiteratureClassify(): string {
   return `你是科研文献导航专家。用户给出一个知识点（含科研方向与论文上下文）和一份**真实学术库返回的候选文献列表**（标题+年份）。请判断每篇候选与该知识点的关系，分为两类：
 

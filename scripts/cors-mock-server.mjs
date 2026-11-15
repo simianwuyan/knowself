@@ -40,7 +40,13 @@ const server = http.createServer((req, res) => {
     } catch {
       /* ignore */
     }
-    let content;
+    if (/【讨论对象】知识节点：/.test(userMsg)) {
+      // 知识点 AI 讨论
+      content = "（Mock 演示）这是对所提问题的示例回答。连接真实 AI 后，这里会结合知识点描述、论文原文片段与你的追问给出具体解答：概念直觉、公式推导、常见误区与下一步学习建议。";
+    } else if (/【讨论对象】知识点：.+ 与 /.test(userMsg)) {
+      // 对比讨论
+      content = "（Mock 演示）这是对比讨论的示例回答。连接真实 AI 后，会基于对比讲解内容展开：差异背后的原因、易混场景的判别方法、读论文时的区分技巧。";
+    } else if (/
     if (/学习卡/.test(userMsg)) {
       // 知识点学习卡：概括 + 自测题
       const name = (userMsg.match(/知识节点：(.+?)（/) || [])[1] || "该知识点";

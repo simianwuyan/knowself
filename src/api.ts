@@ -1,7 +1,7 @@
 // 前端统一入口：启动时探测运行环境，自动选择 服务器模式 / 本地模式
 // 组件层只 import 本模块，不感知底层实现
 import type { Backend } from "./backend/types";
-import type { CompareResult, PaperMeta, Resource } from "./types";
+import type { ChatMessage, CompareResult, PaperMeta, Resource } from "./types";
 import { serverBackend } from "./backend/server";
 import { localBackend } from "./backend/local";
 
@@ -92,10 +92,22 @@ export const generateStudyCard = (pid: string, nid: string) => b().generateStudy
 export const smartLiterature = (pid: string, nid: string, query?: string) =>
   b().smartLiterature(pid, nid, query);
 
+export const chatWithNode = (pid: string, nid: string, message: string) =>
+  b().chatWithNode(pid, nid, message);
+
+export const chatWithComparison = (pid: string, cid: string, message: string) =>
+  b().chatWithComparison(pid, cid, message);
+
+export const chatCompareEphemeral = (
+  pid: string,
+  input: Parameters<Backend["chatCompareEphemeral"]>[1]
+) => b().chatCompareEphemeral(pid, input);
+
 export const saveComparison = (pid: string, input: {
   nodeNames: string[];
   text: string;
   questions?: { q: string; a: string }[];
+  chat?: ChatMessage[];
 }) => b().saveComparison(pid, input);
 
 export const deleteComparison = (pid: string, comparisonId: string) =>

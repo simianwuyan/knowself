@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Mastery } from "../types";
+import type { ChatMessage, Mastery } from "../types";
 import StudyQuizSheet from "./StudyQuizSheet";
+import ChatPanel from "./ChatPanel";
 
 export default function ComparisonSheet({
   nodeNames,
@@ -8,6 +9,8 @@ export default function ComparisonSheet({
   questions,
   mode,
   busy,
+  chat,
+  onSendChat,
   onClose,
   onSave,
   onDelete,
@@ -21,6 +24,10 @@ export default function ComparisonSheet({
   questions?: { q: string; a: string }[];
   mode: "new" | "view";
   busy?: boolean;
+  /** 对话消息：new 模式由父级暂存；view 模式来自已保存记录 */
+  chat?: ChatMessage[];
+  /** 发送讨论消息（父级调 AI 并持久化/暂存） */
+  onSendChat?: (message: string) => void;
   onClose: () => void;
   onSave?: () => void;
   onDelete?: () => void;
@@ -82,6 +89,19 @@ export default function ComparisonSheet({
         </div>
 
         <div className="space-y-2 px-5 pt-4">
+          {/* 与 AI 的讨论（基于对比内容） */}
+          {onSendChat && (
+            <div>
+              <h4 className="mb-1.5 text-xs font-semibold text-slate-400">💬 与 AI 讨论（基于对比内容）</h4>
+              <ChatPanel
+                messages={chat || []}
+                onSend={(t) => onSendChat(t)}
+                busy={Boolean(busy)}
+                maxH="180px"
+                hint="追问差异的原因、易混场景、读论文时如何区分…（新对比的讨论在保存后一并保留）"
+              />
+            </div>
+          )}
           {questions && questions.length > 0 && onSetMasteryBoth && (
             <button
               onClick={() => setShowQuiz(true)}

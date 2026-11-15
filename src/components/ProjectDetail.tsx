@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Comparison, Mastery, PaperMeta, PaperRef, Project } from "../types";
+import type { ChatMessage, Comparison, Mastery, PaperMeta, PaperRef, Project } from "../types";
 import type { LiteratureItem } from "../../shared/lit-recommend";
 import {
   addNode,
   addResource,
   analyzePaper,
+  chatCompareEphemeral,
+  chatWithComparison,
+  chatWithNode,
   compareNodes,
   deleteComparison,
   deleteNode,
@@ -93,6 +96,7 @@ export default function ProjectDetail({ id }: { id: string }) {
   const [compsOpen, setCompsOpen] = useState(false);
   const [viewComp, setViewComp] = useState<Comparison | null>(null);
   const [isMock, setIsMock] = useState(false);
+  const [newCompChat, setNewCompChat] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     fetchSettings()
@@ -212,6 +216,7 @@ export default function ProjectDetail({ id }: { id: string }) {
         .map((nid) => project?.nodes.find((n) => n.id === nid)?.name || "")
         .filter(Boolean);
       setComparison({ nodeNames, text: result.text, questions: result.questions || [] });
+      setNewCompChat([]);
       setCompareMode(false);
       setSelectedIds([]);
     } catch (e) {
@@ -229,10 +234,12 @@ export default function ProjectDetail({ id }: { id: string }) {
         nodeNames: comparison.nodeNames,
         text: comparison.text,
         questions: comparison.questions,
+        chat: newCompChat,
       });
       setProject(p);
       setComparison(null);
-      toast("对比已保存", "success");
+      setNewCompChat([]);
+      toast("对比已保存（含讨论记录）", "success");
     } catch (e) {
       toast(e instanceof Error ? e.message : "保存失败", "error");
     } finally {
@@ -276,6 +283,48 @@ export default function ProjectDetail({ id }: { id: string }) {
   function handleGenerateStudy() {
     if (!sheetNodeId) return;
     void run(() => generateStudyCard(id, sheetNodeId), "学习卡已生成");
+  }
+
+  /** 知识点 AI 讨论：后端追加消息并返回更新后的项目 */
+  function handleNodeChat(message: string) {
+    if (!sheetNodeId) return;
+    void run(async () => {
+      const r = await chatWithNode(id, sheetNodeId, message);
+      return r.project;
+    });
+  }
+
+  /** 已保存对比的 AI 讨论 */
+  function handleComparisonChat(cid: string, message: string) {
+    void run(async () => {
+      const r = await chatWithComparison(id, cid, message);
+      return r.project;
+    });
+  }
+
+  /** 新对比（未保存）的临时讨论 */
+  function handleNewCompChat(message: string) {
+    if (!comparison) return;
+    void (async () => {
+      setBusy(true);
+      try {
+        const r = await chatCompareEphemeral(id, {
+          nodeNames: comparison.nodeNames,
+          compareText: comparison.text,
+          history: newCompChat,
+          message,
+        });
+        setNewCompChat((msgs) => [
+          ...msgs,
+          { role: "user", content: message, ts: Date.now() },
+          { role: "assistant", content: r.reply, ts: Date.now() },
+        ]);
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "发送失败", "error");
+      } finally {
+        setBusy(false);
+      }
+    })();
   }
 
   if (error) {
@@ -611,6 +660,7 @@ export default function ProjectDetail({ id }: { id: string }) {
           }}
           onAddRefNode={handleAddRefNode}
           onGenerateStudy={handleGenerateStudy}
+          onSendChat={handleNodeChat}
           onDelete={() => {
             if (window.confirm(`删除知识点「${sheetNode.name}」？`)) {
               run(() => deleteNode(id, sheetNode.id), "已删除").then(() =>
@@ -691,6 +741,8 @@ export default function ProjectDetail({ id }: { id: string }) {
           questions={comparison.questions}
           mode="new"
           busy={busy}
+          chat={newCompChat}
+          onSendChat={handleNewCompChat}
           onClose={() => setComparison(null)}
           onSave={handleSaveComparison}
           onSetMasteryBoth={(m) => handleComparisonMastery(m, comparison.nodeNames)}
@@ -766,6 +818,8 @@ export default function ProjectDetail({ id }: { id: string }) {
           questions={viewComp.questions}
           mode="view"
           busy={busy}
+          chat={viewComp.chat}
+          onSendChat={(m) => handleComparisonChat(viewComp.id, m)}
           onClose={() => setViewComp(null)}
           onDelete={() => {
             const cid = viewComp.id;

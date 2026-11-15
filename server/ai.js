@@ -9,6 +9,8 @@ import {
   analyzePaperAI,
   compareNodesAI,
   generateStudyCardAI,
+  nodeChatAI,
+  compareChatAI,
 } from "../shared/ai-client.ts";
 import { smartLiterature as smartLiteratureAI } from "../shared/lit-recommend.ts";
 
@@ -67,4 +69,14 @@ export function generateStudyCard(node, project) {
 export function smartLiterature(node, project, query) {
   const { settings, useMock } = current();
   return smartLiteratureAI(settings, useMock, { node, project, query });
+}
+
+export function nodeChat(node, project, history, message) {
+  const { settings, useMock } = current();
+  return nodeChatAI(settings, useMock, { node, project, history, message });
+}
+
+export function compareChat(nodeNames, compareText, history, message) {
+  const { settings, useMock } = current();
+  return compareChatAI(settings, useMock, { nodeNames, compareText, history, message });
 }

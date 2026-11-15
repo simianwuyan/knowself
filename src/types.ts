@@ -16,6 +16,7 @@ export type {
   PaperMeta,
   PaperAnalysis,
   ProjectPaper,
+  ChatMessage,
   Comparison,
   CompareResult,
   StudyCard,

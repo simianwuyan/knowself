@@ -2,6 +2,7 @@
 // 只依赖 fetch（Node 18+ 与浏览器均内置），设置与 mock 判断由调用方决定
 import type {
   AISettings,
+  ChatMessage,
   CompareResult,
   Importance,
   KnowledgeNode,
@@ -33,6 +34,10 @@ import {
   userPromptForStudyCard,
   systemPromptForLiteratureClassify,
   userPromptForLiteratureClassify,
+  systemPromptForNodeChat,
+  userPromptForNodeChat,
+  systemPromptForCompareChat,
+  userPromptForCompareChat,
 } from "./prompts.ts";
 import {
   mockTree,
@@ -43,6 +48,8 @@ import {
   mockCompare,
   mockPaperPlan,
   mockStudyCard,
+  mockNodeChat,
+  mockCompareChat,
 } from "./mock.ts";
 import { searchWorks } from "./lit-search.ts";
 
@@ -542,6 +549,45 @@ export async function classifyLiteratureAI(
 
 function normTitle(s: string): string {
   return String(s || "").toLowerCase().replace(/\s+/g, "");
+}
+
+function buildHistory(history: ChatMessage[]): { role: string; content: string }[] {
+  return history.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+}
+
+/** 知识点 AI 讨论：结合论文语境的连续对话，返回助手回复 */
+export async function nodeChatAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  input: { node: KnowledgeNode; project: Project; history: ChatMessage[]; message: string }
+): Promise<string> {
+  if (isMockSettings(settings, useMock)) return mockNodeChat(input);
+  const messages = [
+    { role: "system", content: systemPromptForNodeChat() },
+    { role: "user", content: userPromptForNodeChat({ node: input.node, project: input.project, message: input.message }) },
+    ...buildHistory(input.history),
+  ];
+  const reply = await rawChat(settings, messages, { temperature: 0.6 });
+  return reply.trim();
+}
+
+/** 对比讨论：基于异同对比讲解的连续对话，返回助手回复 */
+export async function compareChatAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  input: { nodeNames: string[]; compareText: string; history: ChatMessage[]; message: string }
+): Promise<string> {
+  if (isMockSettings(settings, useMock)) return mockCompareChat(input);
+  const messages = [
+    { role: "system", content: systemPromptForCompareChat() },
+    {
+      role: "user",
+      content: userPromptForCompareChat({ nodeNames: input.nodeNames, compareText: input.compareText, message: input.message }),
+    },
+    ...buildHistory(input.history),
+  ];
+  const reply = await rawChat(settings, messages, { temperature: 0.6 });
+  return reply.trim();
 }
 
 /** AI 对比 2~4 个知识点，返回纯文本讲解 */

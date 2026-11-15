@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { KnowledgeNode, Mastery, PaperRef, Resource } from "../types";
 import MasteryControl from "./MasteryControl";
 import StudyQuizSheet from "./StudyQuizSheet";
+import ChatPanel from "./ChatPanel";
 import { importanceLabel } from "../route";
 
 const TYPE_META: Record<Resource["type"], { label: string; cls: string; icon: string }> = {
@@ -23,6 +24,7 @@ export default function NodeSheet({
   onLiterature,
   onAddRefNode,
   onGenerateStudy,
+  onSendChat,
   onDelete,
 }: {
   node: KnowledgeNode;
@@ -36,6 +38,7 @@ export default function NodeSheet({
   onLiterature: () => void;
   onAddRefNode: (ref: PaperRef) => void;
   onGenerateStudy: () => void;
+  onSendChat: (message: string) => void;
   onDelete: () => void;
 }) {
   const [showQuiz, setShowQuiz] = useState(false);
@@ -280,6 +283,19 @@ export default function NodeSheet({
           >
             🔍 检索相关文献（在线搜索 / 下载 PDF / 收藏）
           </button>
+
+          {/* AI 讨论（基于知识点与论文语境，对话保存在节点上） */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-400">💬 AI 讨论</h4>
+            <div className="mt-2">
+              <ChatPanel
+                messages={node.chat || []}
+                onSend={(t) => onSendChat(t)}
+                busy={busy}
+                maxH="220px"
+              />
+            </div>
+          </div>
 
           <button
             onClick={onDelete}

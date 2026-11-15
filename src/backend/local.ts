@@ -18,6 +18,8 @@ import {
   analyzePaperAI,
   compareNodesAI,
   generateStudyCardAI,
+  nodeChatAI,
+  compareChatAI,
 } from "../../shared/ai-client";
 import { mergePaperAnalysis, normName } from "../../shared/merge";
 import { smartLiterature as smartLiteratureAI } from "../../shared/lit-recommend";
@@ -393,6 +395,60 @@ export const localBackend: Backend = {
     return smartLiteratureAI(settings, useMock, { node, project, query });
   },
 
+  async chatWithNode(pid, nid, message) {
+    const project = loadProject(pid);
+    const node = project.nodes.find((n) => n.id === nid);
+    if (!node) throw new Error("节点不存在");
+    const msg = message.trim();
+    if (!msg) throw new Error("消息不能为空");
+    const { settings, useMock } = settingsWith();
+    const history = (node.chat || []).slice(-10);
+    const reply = await nodeChatAI(settings, useMock, { node, project, history, message: msg });
+    node.chat = [
+      ...(node.chat || []),
+      { role: "user" as const, content: msg, ts: Date.now() },
+      { role: "assistant" as const, content: reply, ts: Date.now() },
+    ].slice(-40);
+    project.updatedAt = Date.now();
+    putProject(project);
+    return { project: { ...project }, reply };
+  },
+
+  async chatWithComparison(pid, cid, message) {
+    const project = loadProject(pid);
+    const comp = (project.comparisons || []).find((c) => c.id === cid);
+    if (!comp) throw new Error("对比记录不存在");
+    const msg = message.trim();
+    if (!msg) throw new Error("消息不能为空");
+    const { settings, useMock } = settingsWith();
+    const history = (comp.chat || []).slice(-10);
+    const reply = await compareChatAI(settings, useMock, {
+      nodeNames: comp.nodeNames,
+      compareText: comp.text,
+      history,
+      message: msg,
+    });
+    comp.chat = [
+      ...(comp.chat || []),
+      { role: "user" as const, content: msg, ts: Date.now() },
+      { role: "assistant" as const, content: reply, ts: Date.now() },
+    ].slice(-40);
+    project.updatedAt = Date.now();
+    putProject(project);
+    return { project: { ...project }, reply };
+  },
+
+  async chatCompareEphemeral(_pid, input) {
+    const { settings, useMock } = settingsWith();
+    const reply = await compareChatAI(settings, useMock, {
+      nodeNames: input.nodeNames,
+      compareText: input.compareText,
+      history: input.history,
+      message: input.message,
+    });
+    return { reply };
+  },
+
   async generateStudyCard(pid, nid) {
     const project = loadProject(pid);
     const node = project.nodes.find((n) => n.id === nid);
@@ -412,6 +468,7 @@ export const localBackend: Backend = {
       nodeNames: input.nodeNames,
       text: input.text,
       questions: input.questions,
+      chat: input.chat,
       createdAt: Date.now(),
     });
     project.updatedAt = Date.now();

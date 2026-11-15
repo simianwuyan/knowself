@@ -175,6 +175,34 @@ export async function mockStudyCard({ node }: { node: KnowledgeNode }): Promise<
   };
 }
 
+/** 知识点讨论 Mock */
+export async function mockNodeChat({ node, message }: { node: KnowledgeNode; message: string }): Promise<string> {
+  await sleep(1000);
+  const name = node.name || "该知识点";
+  return `（Mock 演示）关于「${name}」，你的问题是：「${message.slice(0, 60)}${message.length > 60 ? "…" : ""}」。
+
+连接真实 AI 后，这里会结合论文语境给出具体解答：
+· 概念层面的直觉解释与例子
+· 它在论文方法流程中的位置与上下游关系
+· 常见误区与进一步思考的方向
+
+提示：可以在「设置」中配置 DeepSeek / Kimi 等浏览器直连的 AI 服务，获得真实讨论体验。`;
+}
+
+/** 对比讨论 Mock */
+export async function mockCompareChat({ nodeNames, message }: { nodeNames: string[]; message: string }): Promise<string> {
+  await sleep(1000);
+  const pair = nodeNames.join(" 与 ") || "所选知识点";
+  return `（Mock 演示）关于「${pair}」的讨论，你的问题是：「${message.slice(0, 60)}${message.length > 60 ? "…" : ""}」。
+
+连接真实 AI 后，这里会基于对比讲解的内容展开：
+· 差异背后的原因（不只是罗列差异）
+· 容易混淆的具体场景与判别方法
+· 在读论文时如何区分两者的使用语境
+
+提示：配置真实 AI 后即可获得贴合论文内容的讨论。`;
+}
+
 export async function mockCompare({ nodes }: { nodes: KnowledgeNode[] }): Promise<CompareResult> {
   await sleep(1200);
   const names = nodes.map((n) => n.name);

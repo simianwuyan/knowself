@@ -1,5 +1,6 @@
 // 服务器模式的 REST 客户端（调用本机 Express 后端）
 import type {
+  ChatMessage,
   CompareResult,
   PaperMeta,
   Project,
@@ -144,6 +145,31 @@ export function smartLiterature(projectId: string, nodeId: string, query?: strin
   return request<LiteratureGroup>(`/api/projects/${projectId}/smart-literature`, {
     method: "POST",
     body: JSON.stringify({ nodeId, query }),
+  });
+}
+
+export function chatWithNode(projectId: string, nodeId: string, message: string) {
+  return request<{ project: Project; reply: string }>(
+    `/api/projects/${projectId}/nodes/${nodeId}/chat`,
+    { method: "POST", body: JSON.stringify({ message }) }
+  );
+}
+
+export function chatWithComparison(projectId: string, comparisonId: string, message: string) {
+  return request<{ project: Project; reply: string }>(
+    `/api/projects/${projectId}/comparisons/${comparisonId}/chat`,
+    { method: "POST", body: JSON.stringify({ message }) }
+  );
+}
+
+/** 未保存对比的临时讨论（不落库） */
+export function chatCompareEphemeral(
+  projectId: string,
+  input: { nodeNames: string[]; compareText: string; history: ChatMessage[]; message: string }
+) {
+  return request<{ reply: string }>(`/api/projects/${projectId}/compare-chat`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 

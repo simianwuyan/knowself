@@ -54,6 +54,12 @@ export const serverBackend: Backend = {
 
   smartLiterature: (pid, nid, query) => rest.smartLiterature(pid, nid, query),
 
+  chatWithNode: (pid, nid, message) => rest.chatWithNode(pid, nid, message),
+
+  chatWithComparison: (pid, cid, message) => rest.chatWithComparison(pid, cid, message),
+
+  chatCompareEphemeral: (pid, input) => rest.chatCompareEphemeral(pid, input),
+
   saveComparison: (pid, input) => rest.saveComparison(pid, input),
 
   deleteComparison: (pid, cid) => rest.deleteComparison(pid, cid),

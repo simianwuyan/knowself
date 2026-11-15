@@ -21,6 +21,8 @@ import {
   compareNodes,
   generateStudyCard,
   smartLiterature,
+  nodeChat,
+  compareChat,
 } from "./ai.js";
 import { mergePaperAnalysis } from "../shared/merge.ts";
 
@@ -266,6 +268,61 @@ app.post("/api/projects/:id/smart-literature", wrap(async (req, res) => {
   ok(res, result);
 }));
 
+// 与 AI 讨论知识点（对话存于节点）
+app.post("/api/projects/:id/nodes/:nodeId/chat", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const node = project.nodes.find((n) => n.id === req.params.nodeId);
+  if (!node) return res.status(404).json({ error: "节点不存在" });
+  const message = String(req.body?.message || "").trim();
+  if (!message) return res.status(400).json({ error: "消息不能为空" });
+  const history = Array.isArray(node.chat) ? node.chat.slice(-10) : [];
+  const reply = await nodeChat(node, project, history, message);
+  node.chat = [
+    ...(node.chat || []),
+    { role: "user", content: message, ts: Date.now() },
+    { role: "assistant", content: reply, ts: Date.now() },
+  ].slice(-40);
+  project.updatedAt = Date.now();
+  saveProject(project);
+  ok(res, { project, reply });
+}));
+
+// 与 AI 讨论已保存的对比（对话存于对比记录）
+app.post("/api/projects/:id/comparisons/:cid/chat", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const comp = (project.comparisons || []).find((c) => c.id === req.params.cid);
+  if (!comp) return res.status(404).json({ error: "对比记录不存在" });
+  const message = String(req.body?.message || "").trim();
+  if (!message) return res.status(400).json({ error: "消息不能为空" });
+  const history = Array.isArray(comp.chat) ? comp.chat.slice(-10) : [];
+  const reply = await compareChat(comp.nodeNames, comp.text, history, message);
+  comp.chat = [
+    ...(comp.chat || []),
+    { role: "user", content: message, ts: Date.now() },
+    { role: "assistant", content: reply, ts: Date.now() },
+  ].slice(-40);
+  project.updatedAt = Date.now();
+  saveProject(project);
+  ok(res, { project, reply });
+}));
+
+// 未保存对比的临时讨论（不落库）
+app.post("/api/projects/:id/compare-chat", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const { nodeNames, compareText, history, message } = req.body || {};
+  if (!message || !String(message).trim()) return res.status(400).json({ error: "消息不能为空" });
+  const reply = await compareChat(
+    Array.isArray(nodeNames) ? nodeNames : [],
+    String(compareText || ""),
+    Array.isArray(history) ? history.slice(-10) : [],
+    String(message)
+  );
+  ok(res, { reply });
+}));
+
 // AI 对比知识点（不落库）
 app.post("/api/projects/:id/compare", wrap(async (req, res) => {
   const project = getProject(req.params.id);
@@ -283,7 +340,7 @@ app.post("/api/projects/:id/compare", wrap(async (req, res) => {
 app.post("/api/projects/:id/comparisons", wrap(async (req, res) => {
   const project = getProject(req.params.id);
   if (!project) return res.status(404).json({ error: "项目不存在" });
-  const { nodeNames, text, questions } = req.body || {};
+  const { nodeNames, text, questions, chat } = req.body || {};
   if (!Array.isArray(nodeNames) || !text) {
     return res.status(400).json({ error: "参数不完整" });
   }
@@ -297,6 +354,12 @@ app.post("/api/projects/:id/comparisons", wrap(async (req, res) => {
           .filter((q) => q && typeof q.q === "string" && typeof q.a === "string")
           .slice(0, 5)
           .map((q) => ({ q: String(q.q).slice(0, 300), a: String(q.a).slice(0, 800) }))
+      : undefined,
+    chat: Array.isArray(chat)
+      ? chat
+          .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+          .slice(-40)
+          .map((m) => ({ role: m.role, content: m.content.slice(0, 4000), ts: Number(m.ts) || Date.now() }))
       : undefined,
     createdAt: Date.now(),
   });
