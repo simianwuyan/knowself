@@ -132,6 +132,33 @@ ${meta.extraText ? `\n正文片段（excerpt 必须逐字摘自摘要或以下�
 ${meta.refs.length ? meta.refs.map((r, i) => `${i + 1}. ${r.title}${r.year ? ` (${r.year})` : ""}`).join("\n") : "（未提供）"}`;
 }
 
+export function systemPromptForLiteratureClassify(): string {
+  return `你是科研文献导航专家。用户给出一个知识点（含科研方向与论文上下文）和一份**真实学术库返回的候选文献列表**（标题+年份）。请判断每篇候选与该知识点的关系，分为两类：
+
+- "prereq"（前置）：理解该知识点之前应先读的基础/奠基文献——它依赖的理论、方法来源、直接引用的前作
+- "extension"（拓展）：掌握之后值得延伸的相关文献——同方向的应用、改进工作、综述
+
+规则：
+1. title 必须逐字复制候选列表中的标题，禁止编造或改写；不在候选列表中的文献一律不要输出。
+2. 只保留确实与知识点相关的候选；明显无关的（不同领域、仅字面相似）直接跳过。
+3. 每类最多 6 篇，按相关度排序；why 一句话说明理由（20~40 字）。
+4. 候选为空或全部无关时，items 返回空数组——宁可缺失也不要硬凑。
+
+只输出一个 JSON 对象，不要输出任何其他文字，格式：
+{"items":[{"title":"","category":"prereq","why":""}]}`;
+}
+
+export function userPromptForLiteratureClassify({ node, project, candidates }: { node: KnowledgeNode; project: Project; candidates: { title: string; year?: number }[] }): string {
+  return `科研方向：${project.direction || project.title}
+${project.paper ? `所属论文：${project.paper.title}` : ""}
+知识节点：${node.name}（类型：${node.kind || "concept"}）
+节点描述：${node.description || "（无）"}
+${node.excerpt ? `论文原文片段：${node.excerpt.slice(0, 500)}` : ""}
+
+候选文献列表（真实学术库数据）：
+${candidates.map((c, i) => `${i + 1}. ${c.title}${c.year ? ` (${c.year})` : ""}`).join("\n")}`;
+}
+
 export function systemPromptForStudyCard(): string {
   return `你是科研学习辅导专家。用户正在精读论文/规划科研学习，针对给定的知识点（含描述、类型，可能附论文原文片段与用户掌握状态），生成一张「学习卡」帮助用户理解并自测。
 

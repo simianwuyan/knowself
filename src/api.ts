@@ -89,6 +89,9 @@ export const compareNodes = (pid: string, nodeIds: string[]) =>
 
 export const generateStudyCard = (pid: string, nid: string) => b().generateStudyCard(pid, nid);
 
+export const smartLiterature = (pid: string, nid: string, query?: string) =>
+  b().smartLiterature(pid, nid, query);
+
 export const saveComparison = (pid: string, input: {
   nodeNames: string[];
   text: string;

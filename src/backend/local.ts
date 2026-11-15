@@ -20,6 +20,7 @@ import {
   generateStudyCardAI,
 } from "../../shared/ai-client";
 import { mergePaperAnalysis, normName } from "../../shared/merge";
+import { smartLiterature as smartLiteratureAI } from "../../shared/lit-recommend";
 import { encryptWithPin, decryptWithPin } from "../crypto";
 
 const LS_SETTINGS = "knowself:settings";
@@ -382,6 +383,14 @@ export const localBackend: Backend = {
       .filter((n): n is KnowledgeNode => Boolean(n));
     const { settings, useMock } = settingsWith();
     return compareNodesAI(settings, useMock, nodes) as Promise<CompareResult>;
+  },
+
+  async smartLiterature(pid, nid, query) {
+    const project = loadProject(pid);
+    const node = project.nodes.find((n) => n.id === nid);
+    if (!node) throw new Error("节点不存在");
+    const { settings, useMock } = settingsWith();
+    return smartLiteratureAI(settings, useMock, { node, project, query });
   },
 
   async generateStudyCard(pid, nid) {

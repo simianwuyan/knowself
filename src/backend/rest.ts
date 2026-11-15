@@ -8,6 +8,7 @@ import type {
   Resource,
   SettingsView,
 } from "../types";
+import type { LiteratureGroup } from "../../shared/lit-recommend";
 
 export async function request<T>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -136,6 +137,13 @@ export function compareNodes(projectId: string, nodeIds: string[]) {
 export function generateStudyCard(projectId: string, nodeId: string) {
   return request<Project>(`/api/projects/${projectId}/nodes/${nodeId}/study`, {
     method: "POST",
+  });
+}
+
+export function smartLiterature(projectId: string, nodeId: string, query?: string) {
+  return request<LiteratureGroup>(`/api/projects/${projectId}/smart-literature`, {
+    method: "POST",
+    body: JSON.stringify({ nodeId, query }),
   });
 }
 

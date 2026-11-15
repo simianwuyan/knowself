@@ -153,3 +153,45 @@ export async function searchWorks(query: string, limit = 10): Promise<WorkHit[]>
   }
   return [];
 }
+
+/** 按标题定位 OpenAlex work（返回其 OpenAlex ID，如 W123456） */
+export async function findWorkIdByTitle(title: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    filter: `title.search:${title.slice(0, 200)}`,
+    "per-page": "1",
+    select: "id",
+    mailto: OA_MAILTO,
+  });
+  try {
+    const data = await fetchWithRetry(`https://api.openalex.org/works?${params.toString()}`);
+    const id = data?.results?.[0]?.id as string | undefined;
+    return id ? (id.split("/").pop() || null) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 取一篇论文的真实引文网络（它引用了谁 → 精读前的前置候选）。
+ * 经 OpenAlex referenced_works 批量解析题录，带 DOI/PDF 链接。
+ */
+export async function fetchRefsForTitle(title: string, max = 25): Promise<WorkHit[]> {
+  const workId = await findWorkIdByTitle(title);
+  if (!workId) return [];
+  try {
+    const work = await fetchWithRetry(
+      `https://api.openalex.org/works/${workId}?select=referenced_works&mailto=${OA_MAILTO}`
+    );
+    const refIds = ((work?.referenced_works || []) as string[])
+      .map((u) => u.split("/").pop() || "")
+      .filter(Boolean)
+      .slice(0, max);
+    if (!refIds.length) return [];
+    const data = await fetchWithRetry(
+      `https://api.openalex.org/works?filter=ids.openalex:${refIds.join("|")}&per-page=50&select=display_name,authorships,publication_year,primary_location,cited_by_count,doi,open_access,best_oa_location&mailto=${OA_MAILTO}`
+    );
+    return ((data?.results || []) as OaWork[]).map(mapOpenAlex).filter(Boolean) as WorkHit[];
+  } catch {
+    return [];
+  }
+}

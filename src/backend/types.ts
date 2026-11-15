@@ -8,6 +8,7 @@ import type {
   Resource,
   SettingsView,
 } from "../types";
+import type { LiteratureGroup } from "../../shared/lit-recommend";
 
 export type KeyLockState = "none" | "unlocked" | "locked";
 
@@ -77,6 +78,11 @@ export interface Backend {
   compareNodes(projectId: string, nodeIds: string[]): Promise<CompareResult>;
   /** 生成/重新生成知识点学习卡（概括+自测题），保存到节点并返回项目 */
   generateStudyCard(projectId: string, nodeId: string): Promise<Project>;
+  /**
+   * 智能文献推荐：真实引文网络（前置）+ 关键词检索 → AI「前置/拓展」分类
+   * （引文网络与检索在双模式中都由调用端直连学术库完成）
+   */
+  smartLiterature(projectId: string, nodeId: string, query?: string): Promise<LiteratureGroup>;
   /** 保存对比记录（含自测题，供回看时再测） */
   saveComparison(
     projectId: string,

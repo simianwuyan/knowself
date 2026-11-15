@@ -52,6 +52,8 @@ export const serverBackend: Backend = {
 
   generateStudyCard: (pid, nid) => rest.generateStudyCard(pid, nid),
 
+  smartLiterature: (pid, nid, query) => rest.smartLiterature(pid, nid, query),
+
   saveComparison: (pid, input) => rest.saveComparison(pid, input),
 
   deleteComparison: (pid, cid) => rest.deleteComparison(pid, cid),

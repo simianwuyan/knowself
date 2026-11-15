@@ -31,6 +31,8 @@ import {
   userPromptForCompare,
   systemPromptForStudyCard,
   userPromptForStudyCard,
+  systemPromptForLiteratureClassify,
+  userPromptForLiteratureClassify,
 } from "./prompts.ts";
 import {
   mockTree,
@@ -484,6 +486,62 @@ export async function generateStudyCardAI(
     .slice(0, 6);
   if (!summary && !questions.length) throw new Error("AI 未返回学习卡内容，请重试");
   return { summary, questions, generatedAt: Date.now() };
+}
+
+export interface ClassifiedLiterature {
+  title: string;
+  category: "prereq" | "extension";
+  why: string;
+}
+
+/** AI 对候选文献做「前置/拓展」分类与相关性筛选（title 必须逐字来自候选） */
+export async function classifyLiteratureAI(
+  settings: AISettings,
+  useMock: boolean | undefined,
+  input: {
+    node: KnowledgeNode;
+    project: Project;
+    candidates: { title: string; year?: number }[];
+  }
+): Promise<ClassifiedLiterature[]> {
+  if (isMockSettings(settings, useMock)) {
+    // Mock：把候选近似按序拆成前置/拓展
+    const label = input.node.name;
+    return input.candidates
+      .slice(0, 8)
+      .map((c, i) => ({
+        title: c.title,
+        category: (i % 2 === 0 ? "prereq" : "extension") as ClassifiedLiterature["category"],
+        why: `（Mock 演示）与「${label.slice(0, 12)}」${i % 2 === 0 ? "直接相关的前置基础" : "同方向拓展阅读"}（连接真实 AI 后将精准分类）`,
+      }));
+  }
+  const json = await chatJson(
+    settings,
+    systemPromptForLiteratureClassify(),
+    userPromptForLiteratureClassify({ node: input.node, project: input.project, candidates: input.candidates }),
+    { temperature: 0.3 }
+  );
+  const items = Array.isArray(json.items) ? json.items : [];
+  const validTitles = new Set(input.candidates.map((c) => normTitle(c.title)));
+  return items
+    .filter(
+      (it): it is { title: string; category: "prereq" | "extension"; why: string } =>
+        Boolean(it) &&
+        typeof (it as { title?: unknown }).title === "string" &&
+        validTitles.has(normTitle((it as { title: string }).title)) &&
+        ((it as { category?: unknown }).category === "prereq" ||
+          (it as { category?: unknown }).category === "extension")
+    )
+    .slice(0, 14)
+    .map((it) => ({
+      title: it.title.trim(),
+      category: it.category,
+      why: typeof it.why === "string" ? it.why.trim().slice(0, 120) : "",
+    }));
+}
+
+function normTitle(s: string): string {
+  return String(s || "").toLowerCase().replace(/\s+/g, "");
 }
 
 /** AI 对比 2~4 个知识点，返回纯文本讲解 */

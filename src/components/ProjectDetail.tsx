@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Comparison, Mastery, PaperMeta, PaperRef, Project } from "../types";
-import type { PaperHit } from "../literature";
+import type { LiteratureItem } from "../../shared/lit-recommend";
 import {
   addNode,
   addResource,
@@ -624,24 +624,26 @@ export default function ProjectDetail({ id }: { id: string }) {
       {/* 文献检索面板 */}
       {litNode && (
         <LiteraturePanel
-          initialQuery={`${litNode.name} ${project.direction || ""}`.trim()}
+          node={litNode}
+          project={project}
           savedTitles={(litNode.resources || []).map((r) => r.title)}
           busy={busy}
           onClose={() => setLitNodeId(null)}
-          onSave={(p: PaperHit) =>
+          onSave={(item: LiteratureItem) =>
             run(() =>
               addResource(id, litNode.id, {
-                title: p.title,
+                title: item.title,
                 type: "paper",
                 note: [
-                  p.authors[0] ? `${p.authors[0]} 等` : "",
-                  p.year ? String(p.year) : "",
-                  p.citations !== undefined ? `被引 ${p.citations}` : "",
+                  item.why,
+                  item.authors[0] ? `${item.authors[0]} 等` : "",
+                  item.year ? String(item.year) : "",
+                  item.citations !== undefined ? `被引 ${item.citations}` : "",
                 ]
                   .filter(Boolean)
                   .join(" · "),
-                url: p.landingUrl,
-                pdfUrl: p.pdfUrl,
+                url: item.landingUrl,
+                pdfUrl: item.pdfUrl,
               })
             )
           }

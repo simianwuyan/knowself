@@ -10,6 +10,7 @@ import {
   compareNodesAI,
   generateStudyCardAI,
 } from "../shared/ai-client.ts";
+import { smartLiterature as smartLiteratureAI } from "../shared/lit-recommend.ts";
 
 function current() {
   const s = getSettings();
@@ -61,4 +62,9 @@ export function compareNodes(nodes) {
 export function generateStudyCard(node, project) {
   const { settings, useMock } = current();
   return generateStudyCardAI(settings, useMock, node, project);
+}
+
+export function smartLiterature(node, project, query) {
+  const { settings, useMock } = current();
+  return smartLiteratureAI(settings, useMock, { node, project, query });
 }

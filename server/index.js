@@ -20,6 +20,7 @@ import {
   analyzePaper,
   compareNodes,
   generateStudyCard,
+  smartLiterature,
 } from "./ai.js";
 import { mergePaperAnalysis } from "../shared/merge.ts";
 
@@ -252,6 +253,17 @@ app.post("/api/projects/:id/nodes/:nodeId/study", wrap(async (req, res) => {
   project.updatedAt = Date.now();
   saveProject(project);
   ok(res, project);
+}));
+
+// 智能文献推荐：真实引文网络（前置）+ 关键词检索 → AI「前置/拓展」分类
+app.post("/api/projects/:id/smart-literature", wrap(async (req, res) => {
+  const project = getProject(req.params.id);
+  if (!project) return res.status(404).json({ error: "项目不存在" });
+  const node = project.nodes.find((n) => n.id === req.body?.nodeId);
+  if (!node) return res.status(404).json({ error: "节点不存在" });
+  const query = typeof req.body?.query === "string" && req.body.query.trim() ? req.body.query.trim() : undefined;
+  const result = await smartLiterature(node, project, query);
+  ok(res, result);
 }));
 
 // AI 对比知识点（不落库）
